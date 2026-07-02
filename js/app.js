@@ -1,23 +1,12 @@
 
-const stimulusLibrary=new StimulusLibrary([
-  {id:0,label:'🦘'},
-  {id:1,label:'🐕'},
-  {id:2,label:'🐋'},
-  {id:3,label:'🐦'},
-  {id:4,label:'🐈'},
-  {id:5,label:'🪑'},
-  {id:6,label:'🚗'},
-  {id:7,label:'📘'},
-  {id:8,label:'🎸'},
-  {id:9,label:'🏠'}
-]);
-const availableStimuli=stimulusLibrary.getAll();
-const imgs=Array.from({length:20},(_,i)=>({id:i,label:stimulusLibrary.getById(i%availableStimuli.length).label}));
+const stimulusLibrary=new StimulusLibrary('stimuli/emoji/metadata.json');
+let availableStimuli=[];
+let imgs=[];
 const world=new World();
 const logger=new Logger();
 const rule=new Rule();
 const agent=new RandomAgent();
-const episodeController=new EpisodeController(imgs.length);
+let episodeController=null;
 const board=new Board("board",id=>makeSelection(id,'human'));
 let currentTurn='human';
 const agentDelayMs=700;
@@ -27,11 +16,29 @@ let agentScore=0;
 let agentMoveTimer=null;
 let episodeTransitionTimer=null;
 
+function buildStimulusImages(){
+  availableStimuli=stimulusLibrary.getAll();
+  imgs=Array.from({length:20},(_,i)=>({
+    id:i,
+    label:stimulusLibrary.getById(i%availableStimuli.length)?.display || ''
+  }));
+  episodeController=new EpisodeController(imgs.length);
+}
+
+async function initializeGame(){
+  await stimulusLibrary.ready;
+  buildStimulusImages();
+  startEpisode();
+}
+
 function countRewards(images){
   return images.reduce((count,img)=>count + (rule.evaluate({resolved:false,imageInstance:img}).reward ? 1 : 0),0);
 }
 
 function startEpisode(){
+  if(episodeController===null){
+    return;
+  }
   if(episodeTransitionTimer!==null){
     clearTimeout(episodeTransitionTimer);
     episodeTransitionTimer=null;
@@ -100,7 +107,7 @@ function makeSelection(id,actor){
   }
 }
 
-startEpisode();
+initializeGame();
 
 function agentMove(){
   agentMoveTimer=null;

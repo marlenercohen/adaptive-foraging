@@ -1,6 +1,19 @@
 class StimulusLibrary {
-  constructor(stimuli = []) {
-    this.stimuli = Array.isArray(stimuli) ? stimuli : [];
+  constructor(metadataUrl = null) {
+    this.stimuli = [];
+    this.metadataUrl = metadataUrl;
+    this.ready = this.loadMetadata();
+  }
+
+  async loadMetadata() {
+    if(!this.metadataUrl){
+      this.stimuli = [];
+      return;
+    }
+
+    const response = await fetch(this.metadataUrl);
+    const data = await response.json();
+    this.stimuli = Array.isArray(data) ? data : [];
   }
 
   getAll() {
