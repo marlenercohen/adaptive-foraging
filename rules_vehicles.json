@@ -1,0 +1,8 @@
+[
+  {
+    "type": "feature",
+    "feature": "vehicle",
+    "operator": "==",
+    "value": 1
+  }
+]

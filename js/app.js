@@ -5,7 +5,8 @@ let availableStimuli=[];
 let imgs=[];
 const world=new World();
 const logger=new Logger();
-let rule=new Rule();
+let ruleScheduler=null;
+let currentRule=null;
 let agent=null;
 let agentFactory=new AgentFactory();
 let episodeController=null;
@@ -39,8 +40,16 @@ async function initializeGame(){
   experimentConfig = await loadExperimentConfig();
   stimulusLibrary = new StimulusLibrary(experimentConfig.stimulusMetadataFile);
   await stimulusLibrary.ready;
-  const loadedRules = await loadRules(experimentConfig.ruleFile);
-  rule = new Rule(loadedRules);
+
+  // support either ruleFiles (array) or legacy ruleFile
+  const ruleFiles = experimentConfig.ruleFiles && Array.isArray(experimentConfig.ruleFiles)
+    ? experimentConfig.ruleFiles
+    : (experimentConfig.ruleFile ? [experimentConfig.ruleFile] : ['rules.json']);
+
+  const loadedPerFile = await Promise.all(ruleFiles.map(f => loadRules(f)));
+  const ruleInstances = loadedPerFile.map(arr => new Rule(arr));
+  ruleScheduler = new RuleScheduler(ruleInstances, experimentConfig.episodesPerRule || Infinity);
+
   board.feedbackDurationMs = experimentConfig.feedbackDurationMs || board.feedbackDurationMs;
   agentDelayMs = experimentConfig.agentDelayMs || agentDelayMs;
   agent = agentFactory.createAgent(experimentConfig.agent);
@@ -48,8 +57,9 @@ async function initializeGame(){
   startEpisode();
 }
 
-function countRewards(images){
-  return images.reduce((count,img)=>count + (rule.evaluate({resolved:false,imageInstance:img}).reward ? 1 : 0),0);
+function countRewards(images, activeRule){
+  const r = activeRule || currentRule || new Rule([]);
+  return images.reduce((count,img)=>count + (r.evaluate({resolved:false,imageInstance:img}).reward ? 1 : 0),0);
 }
 
 function startEpisode(){
@@ -64,12 +74,17 @@ function startEpisode(){
     clearTimeout(agentMoveTimer);
     agentMoveTimer=null;
   }
-  episodeController.resetEpisode(countRewards(imgs));
+  // Determine which rule will be active for the upcoming episode
+  const upcomingEpisodeNumber = (episodeController.episodeNumber || 0) + 1;
+  const activeForUpcoming = ruleScheduler ? ruleScheduler.getActiveRule(upcomingEpisodeNumber) : new Rule([]);
+  episodeController.resetEpisode(countRewards(imgs, activeForUpcoming));
   world.startEpisode(imgs);
   humanScore=0;
   agentScore=0;
   board.draw(world);
   updateScores();
+  // Set the current rule for this episode (episodeNumber was incremented by resetEpisode)
+  currentRule = ruleScheduler ? ruleScheduler.getActiveRule(episodeController.episodeNumber) : activeForUpcoming;
   setTurn('human');
 }
 
@@ -86,7 +101,7 @@ function setTurn(turn){
 function makeSelection(id,actor){
   if(currentTurn!==actor)return;
   const p=world.getPosition(id);
-  const r=rule.evaluate(p);
+  const r=(currentRule || new Rule([])).evaluate(p);
   const reward=r.reward;
   const repeat=r.repeat;
   if(!repeat){

@@ -83,3 +83,16 @@ async function loadRules(rulePath = 'rules.json') {
     .map(createRuleFromDefinition)
     .filter(Boolean);
 }
+
+class RuleScheduler {
+  constructor(ruleInstances = [], episodesPerRule = Infinity){
+    this.ruleInstances = Array.isArray(ruleInstances) ? ruleInstances : [];
+    this.episodesPerRule = episodesPerRule || Infinity;
+  }
+
+  getActiveRule(episodeNumber){
+    if(!this.ruleInstances.length) return new Rule([]);
+    const idx = Math.min(this.ruleInstances.length - 1, Math.floor(((episodeNumber || 1) - 1) / this.episodesPerRule));
+    return this.ruleInstances[Math.max(0, idx)];
+  }
+}
