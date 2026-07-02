@@ -1,35 +1,49 @@
 
-const stimulusLibrary=new StimulusLibrary('stimuli/emoji/metadata.json');
+let experimentConfig=null;
+let stimulusLibrary=null;
 let availableStimuli=[];
 let imgs=[];
 const world=new World();
 const logger=new Logger();
 let rule=new Rule();
-const agent=new RandomAgent();
+let agent=null;
+let agentFactory=new AgentFactory();
 let episodeController=null;
 const board=new Board("board",id=>makeSelection(id,'human'));
 let currentTurn='human';
-const agentDelayMs=700;
+let agentDelayMs=700;
 const episodePauseMs=1000;
 let humanScore=0;
 let agentScore=0;
 let agentMoveTimer=null;
 let episodeTransitionTimer=null;
 
+async function loadExperimentConfig(){
+  const response = await fetch('experiment.json');
+  experimentConfig = await response.json();
+  return experimentConfig;
+}
+
 function buildStimulusImages(){
   availableStimuli=stimulusLibrary.getAll();
-  imgs=Array.from({length:20},(_,i)=>({
+  const count = experimentConfig?.stimuliPerEpisode || 20;
+  imgs=Array.from({length:count},(_,i)=>({
     id:i,
     label:stimulusLibrary.getById(i%availableStimuli.length)?.display || '',
     features:stimulusLibrary.getById(i%availableStimuli.length)?.features || {}
   }));
-  episodeController=new EpisodeController(imgs.length);
+  episodeController=new EpisodeController(experimentConfig?.episodeLength || imgs.length);
 }
 
 async function initializeGame(){
+  experimentConfig = await loadExperimentConfig();
+  stimulusLibrary = new StimulusLibrary(experimentConfig.stimulusMetadataFile);
   await stimulusLibrary.ready;
-  const loadedRules = await loadRules();
+  const loadedRules = await loadRules(experimentConfig.ruleFile);
   rule = new Rule(loadedRules);
+  board.feedbackDurationMs = experimentConfig.feedbackDurationMs || board.feedbackDurationMs;
+  agentDelayMs = experimentConfig.agentDelayMs || agentDelayMs;
+  agent = agentFactory.createAgent(experimentConfig.agent);
   buildStimulusImages();
   startEpisode();
 }
@@ -92,6 +106,9 @@ function makeSelection(id,actor){
   }
   board.feedback(id,reward);
   updateScores();
+  if(actor==='agent' && agent && typeof agent.receiveFeedback === 'function'){
+    agent.receiveFeedback(p.imageInstance, p.imageInstance?.features || {}, Boolean(reward));
+  }
   logger.log("selection",{actor,positionID:id,imageID:p.imageInstance.id,reward:Boolean(reward),repeat,humanScore,agentScore,episodeNumber:episodeController.episodeNumber,participantSelectionsRemaining:Math.max(0,episodeController.maxParticipantSelections-episodeController.participantSelections)});
   if(episodeController.isEpisodeComplete()){
     if(agentMoveTimer!==null){

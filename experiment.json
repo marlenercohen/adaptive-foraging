@@ -1,0 +1,13 @@
+{
+  "name": "Adaptive Foraging",
+  "stimulusMetadataFile": "stimuli/emoji/metadata.json",
+  "ruleFile": "rules.json",
+  "numEpisodes": 10,
+  "stimuliPerEpisode": 20,
+  "episodeLength": 20,
+  "feedbackDurationMs": 500,
+  "agentDelayMs": 700,
+  "agent": {
+    "type": "random"
+  }
+}

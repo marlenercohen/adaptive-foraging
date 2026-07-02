@@ -1,6 +1,6 @@
 
 class Board{
- constructor(id,cb){this.el=document.getElementById(id);this.cb=cb;}
+ constructor(id,cb,feedbackDurationMs=500){this.el=document.getElementById(id);this.cb=cb;this.feedbackDurationMs=feedbackDurationMs;}
  draw(world){
   this.el.innerHTML="";
   world.positions.forEach(p=>{
@@ -18,8 +18,8 @@ class Board{
    o.className="overlay "+(hit?"hit":"miss");
    o.textContent=hit?"◯":"✕";
    t.appendChild(o);
-   setTimeout(()=>o.remove(),500);
+   setTimeout(()=>o.remove(),this.feedbackDurationMs);
    t.classList.add("selected");
-   setTimeout(()=>t.classList.remove("selected"),650);
+   setTimeout(()=>t.classList.remove("selected"),this.feedbackDurationMs+150);
  }
 }
