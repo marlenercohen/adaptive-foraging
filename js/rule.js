@@ -92,7 +92,21 @@ class RuleScheduler {
 
   getActiveRule(episodeNumber){
     if(!this.ruleInstances.length) return new Rule([]);
-    const idx = Math.min(this.ruleInstances.length - 1, Math.floor(((episodeNumber || 1) - 1) / this.episodesPerRule));
+    const E = this.episodesPerRule;
+    if(!isFinite(E) || E <= 0) return this.ruleInstances[0];
+    const block = Math.floor(((episodeNumber || 1) - 1) / E);
+    const idx = block % this.ruleInstances.length;
     return this.ruleInstances[Math.max(0, idx)];
+  }
+
+  episodesUntilNextSwitch(episodeNumber){
+    if(!this.ruleInstances.length) return Infinity;
+    const E = this.episodesPerRule;
+    if(!isFinite(E) || E <= 0) return Infinity;
+    const ep = episodeNumber || 1;
+    const b = Math.floor((ep - 1) / E);
+    const nextSwitchEpisode = (b + 1) * E + 1;
+    const remaining = nextSwitchEpisode - ep;
+    return Math.max(0, remaining);
   }
 }

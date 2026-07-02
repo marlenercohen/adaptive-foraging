@@ -11,6 +11,7 @@ let agent=null;
 let agentFactory=new AgentFactory();
 let episodeController=null;
 const board=new Board("board",id=>makeSelection(id,'human'));
+let experimenterPanel=null;
 let currentTurn='human';
 let agentDelayMs=700;
 const episodePauseMs=1000;
@@ -54,7 +55,33 @@ async function initializeGame(){
   agentDelayMs = experimentConfig.agentDelayMs || agentDelayMs;
   agent = agentFactory.createAgent(experimentConfig.agent);
   buildStimulusImages();
+  // create experimenter panel and show initial state
+  if(window.ExperimenterPanel){
+    experimenterPanel = new ExperimenterPanel('experimenter-panel');
+  }
   startEpisode();
+  updateExperimenterPanel();
+}
+
+function getExperimenterState(){
+  const episodeNum = episodeController ? episodeController.episodeNumber : 0;
+  let ruleIndex = null;
+  if(ruleScheduler && ruleScheduler.ruleInstances && currentRule){
+    ruleIndex = ruleScheduler.ruleInstances.indexOf(currentRule);
+    if(ruleIndex<0) ruleIndex = null;
+  }
+  const ruleLabel = (ruleIndex!==null && experimentConfig && experimentConfig.ruleFiles)
+    ? `${experimentConfig.ruleFiles[ruleIndex] || ('rule#'+ruleIndex)}`
+    : (ruleIndex!==null ? `rule#${ruleIndex}` : '-');
+  const agentType = experimentConfig?.agent?.type || '-';
+  const rewardsRemaining = episodeController?.rewardsRemaining ?? '-';
+  const episodesUntilNextSwitch = ruleScheduler ? ruleScheduler.episodesUntilNextSwitch(episodeController?.episodeNumber || 0) : Infinity;
+  return {episodeNumber:episodeNum, ruleIndex:ruleLabel, agentType, rewardsRemaining, episodesUntilNextSwitch};
+}
+
+function updateExperimenterPanel(){
+  if(!experimenterPanel) return;
+  experimenterPanel.update(getExperimenterState());
 }
 
 function countRewards(images, activeRule){
@@ -86,6 +113,7 @@ function startEpisode(){
   // Set the current rule for this episode (episodeNumber was incremented by resetEpisode)
   currentRule = ruleScheduler ? ruleScheduler.getActiveRule(episodeController.episodeNumber) : activeForUpcoming;
   setTurn('human');
+  updateExperimenterPanel();
 }
 
 function updateScores(){
@@ -125,6 +153,7 @@ function makeSelection(id,actor){
     agent.receiveFeedback(p.imageInstance, p.imageInstance?.features || {}, Boolean(reward));
   }
   logger.log("selection",{actor,positionID:id,imageID:p.imageInstance.id,reward:Boolean(reward),repeat,humanScore,agentScore,episodeNumber:episodeController.episodeNumber,participantSelectionsRemaining:Math.max(0,episodeController.maxParticipantSelections-episodeController.participantSelections)});
+  updateExperimenterPanel();
   if(episodeController.isEpisodeComplete()){
     if(agentMoveTimer!==null){
       clearTimeout(agentMoveTimer);

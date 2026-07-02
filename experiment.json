@@ -9,6 +9,6 @@
   "feedbackDurationMs": 500,
   "agentDelayMs": 700,
   "agent": {
-    "type": "random"
+    "type": "feature-learning"
   }
 }
