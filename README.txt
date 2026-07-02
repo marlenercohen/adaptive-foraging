@@ -1,9 +1,15 @@
-Version 0.002
+Version 0.005
 
-Copy the three files in js/ into your repository's js/ folder,
-replacing the existing world.js.
+Replace:
+  js/app.js
+  js/board.js
+  css/style.css
 
-Files:
-- world.js
-- board.js
-- logger.js
+Add:
+  js/rule.js
+
+Double-click index.html and test:
+- animals score
+- objects don't
+- repeat clicks look like misses
+- score updates
