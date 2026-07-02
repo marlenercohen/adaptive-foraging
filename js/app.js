@@ -4,9 +4,7 @@ let availableStimuli=[];
 let imgs=[];
 const world=new World();
 const logger=new Logger();
-const rule=new Rule([
-  new FeatureRule('animal','==',1)
-]);
+let rule=new Rule();
 const agent=new RandomAgent();
 let episodeController=null;
 const board=new Board("board",id=>makeSelection(id,'human'));
@@ -30,6 +28,8 @@ function buildStimulusImages(){
 
 async function initializeGame(){
   await stimulusLibrary.ready;
+  const loadedRules = await loadRules();
+  rule = new Rule(loadedRules);
   buildStimulusImages();
   startEpisode();
 }
