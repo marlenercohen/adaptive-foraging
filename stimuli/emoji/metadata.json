@@ -1,12 +1,12 @@
 [
-  {"id":0,"display":"🦘","features":{}},
-  {"id":1,"display":"🐕","features":{}},
-  {"id":2,"display":"🐋","features":{}},
-  {"id":3,"display":"🐦","features":{}},
-  {"id":4,"display":"🐈","features":{}},
-  {"id":5,"display":"🪑","features":{}},
-  {"id":6,"display":"🚗","features":{}},
-  {"id":7,"display":"📘","features":{}},
-  {"id":8,"display":"🎸","features":{}},
-  {"id":9,"display":"🏠","features":{}}
+  {"id":0,"display":"🦘","features":{"animal":1,"object":0,"mammal":0,"bird":0,"marine":0,"vehicle":0}},
+  {"id":1,"display":"🐕","features":{"animal":1,"object":0,"mammal":1,"bird":0,"marine":0,"vehicle":0}},
+  {"id":2,"display":"🐋","features":{"animal":1,"object":0,"mammal":1,"bird":0,"marine":1,"vehicle":0}},
+  {"id":3,"display":"🐦","features":{"animal":1,"object":0,"mammal":0,"bird":1,"marine":0,"vehicle":0}},
+  {"id":4,"display":"🐈","features":{"animal":1,"object":0,"mammal":1,"bird":0,"marine":0,"vehicle":0}},
+  {"id":5,"display":"🪑","features":{"animal":0,"object":1,"mammal":0,"bird":0,"marine":0,"vehicle":0}},
+  {"id":6,"display":"🚗","features":{"animal":0,"object":1,"mammal":0,"bird":0,"marine":0,"vehicle":1}},
+  {"id":7,"display":"📘","features":{"animal":0,"object":1,"mammal":0,"bird":0,"marine":0,"vehicle":0}},
+  {"id":8,"display":"🎸","features":{"animal":0,"object":1,"mammal":0,"bird":0,"marine":0,"vehicle":0}},
+  {"id":9,"display":"🏠","features":{"animal":0,"object":1,"mammal":0,"bird":0,"marine":0,"vehicle":0}}
 ]

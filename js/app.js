@@ -4,7 +4,9 @@ let availableStimuli=[];
 let imgs=[];
 const world=new World();
 const logger=new Logger();
-const rule=new Rule();
+const rule=new Rule([
+  new FeatureRule('animal','==',1)
+]);
 const agent=new RandomAgent();
 let episodeController=null;
 const board=new Board("board",id=>makeSelection(id,'human'));
@@ -20,7 +22,8 @@ function buildStimulusImages(){
   availableStimuli=stimulusLibrary.getAll();
   imgs=Array.from({length:20},(_,i)=>({
     id:i,
-    label:stimulusLibrary.getById(i%availableStimuli.length)?.display || ''
+    label:stimulusLibrary.getById(i%availableStimuli.length)?.display || '',
+    features:stimulusLibrary.getById(i%availableStimuli.length)?.features || {}
   }));
   episodeController=new EpisodeController(imgs.length);
 }
