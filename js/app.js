@@ -5,6 +5,7 @@ let availableStimuli=[];
 let imgs=[];
 const world=new World();
 const logger=new Logger();
+const experimentLogger=new ExperimentLogger();
 let ruleScheduler=null;
 let currentRule=null;
 let agent=null;
@@ -20,6 +21,13 @@ let humanScore=0;
 let agentScore=0;
 let agentMoveTimer=null;
 let episodeTransitionTimer=null;
+let currentRuleIndex=null;
+let currentBlockNumber=null;
+let previousRuleIndex=null;
+let loadedRuleDefinitions={};
+let currentRuleFiles=[];
+let currentEpisodeRewardCapacity=0;
+let sessionEnded=false;
 
 async function loadExperimentConfig(){
   const response = await fetch('experiment.json');
@@ -47,6 +55,16 @@ async function initializeGame(){
   const ruleFiles = experimentConfig.ruleFiles && Array.isArray(experimentConfig.ruleFiles)
     ? experimentConfig.ruleFiles
     : (experimentConfig.ruleFile ? [experimentConfig.ruleFile] : ['rules.json']);
+  currentRuleFiles = ruleFiles;
+
+  const rawRuleFiles = await Promise.all(ruleFiles.map(async (filePath) => {
+    const response = await fetch(filePath);
+    return { filePath, definitions: await response.json() };
+  }));
+  loadedRuleDefinitions = rawRuleFiles.reduce((acc, item) => {
+    acc[item.filePath] = item.definitions;
+    return acc;
+  }, {});
 
   const loadedPerFile = await Promise.all(ruleFiles.map(f => loadRules(f)));
   const ruleInstances = loadedPerFile.map(arr => new Rule(arr));
@@ -56,11 +74,154 @@ async function initializeGame(){
   agentDelayMs = experimentConfig.agentDelayMs || agentDelayMs;
   agent = agentFactory.createAgent(experimentConfig.agent);
   buildStimulusImages();
+  initializeExperimentLogging();
   if (experimentConfig.debug && window.ExperimenterPanel) {
-    experimenterPanel = new ExperimenterPanel('experimenter-panel');
+    experimenterPanel = new ExperimenterPanel('experimenter-panel', {
+      onDownloadSession: downloadSessionLog
+    });
   }
   startEpisode();
   updateExperimenterPanel();
+}
+
+function formatTimestampForFileName(date = new Date()){
+  const year = String(date.getFullYear());
+  const month = String(date.getMonth() + 1).padStart(2, '0');
+  const day = String(date.getDate()).padStart(2, '0');
+  const hours = String(date.getHours()).padStart(2, '0');
+  const minutes = String(date.getMinutes()).padStart(2, '0');
+  return `${year}-${month}-${day}_${hours}${minutes}`;
+}
+
+function downloadSessionLog(){
+  const sessionData = experimentLogger.getSessionData();
+  const json = JSON.stringify(sessionData, null, 2);
+  const blob = new Blob([json], { type: 'application/json' });
+  const url = URL.createObjectURL(blob);
+  const fileName = `adaptive_foraging_${formatTimestampForFileName()}.json`;
+
+  const link = document.createElement('a');
+  link.href = url;
+  link.download = fileName;
+  document.body.appendChild(link);
+  link.click();
+  document.body.removeChild(link);
+  URL.revokeObjectURL(url);
+}
+
+function getRuleIndexForEpisode(episodeNumber){
+  if(!ruleScheduler || !ruleScheduler.ruleInstances || !ruleScheduler.ruleInstances.length) return null;
+  const active = ruleScheduler.getActiveRule(episodeNumber);
+  const idx = ruleScheduler.ruleInstances.indexOf(active);
+  return idx >= 0 ? idx : null;
+}
+
+function getBlockNumberForEpisode(episodeNumber){
+  const E = experimentConfig?.episodesPerRule;
+  if(!isFinite(E) || E <= 0) return 1;
+  return Math.floor(((episodeNumber || 1) - 1) / E) + 1;
+}
+
+function getAgentInternalState(){
+  if(!agent) return {};
+  const state = {};
+  Object.keys(agent).forEach(key => {
+    const value = agent[key];
+    if(typeof value !== 'function'){
+      state[key] = value;
+    }
+  });
+  return state;
+}
+
+function initializeExperimentLogging(){
+  const metadata = {
+    timestamp: new Date().toISOString(),
+    softwareVersion: document.title || 'unknown',
+    experimentConfiguration: experimentConfig,
+    protocol: experimentConfig?.protocol ?? {},
+    stimulusMetadata: availableStimuli,
+    ruleDefinitions: loadedRuleDefinitions,
+    rewardStructure: {
+      episodesPerRule: experimentConfig?.episodesPerRule ?? null,
+      stimuliPerEpisode: experimentConfig?.stimuliPerEpisode ?? null,
+      rewardUnitValue: 1
+    },
+    agentConfiguration: experimentConfig?.agent ?? {},
+    workingMemoryConfiguration: experimentConfig?.workingMemory ?? {},
+    episodeTerminationPolicy: {
+      maxParticipantSelections: episodeController?.maxParticipantSelections ?? null,
+      endsOnRewardsExhausted: true,
+      endsOnSelectionLimit: true
+    },
+    randomSeeds: experimentConfig?.randomSeeds ?? {
+      source: 'Math.random',
+      deterministicSeed: null
+    }
+  };
+  experimentLogger.beginSession(metadata);
+}
+
+function buildReplayState(){
+  return {
+    currentBlock: currentBlockNumber,
+    currentEpisode: episodeController?.episodeNumber ?? null,
+    currentMove: episodeController?.participantSelections ?? null,
+    currentRule: {
+      index: currentRuleIndex,
+      file: currentRuleIndex !== null ? (currentRuleFiles[currentRuleIndex] || null) : null,
+      definition: currentRuleIndex !== null ? loadedRuleDefinitions[currentRuleFiles[currentRuleIndex]] : null
+    },
+    currentRewardStructure: {
+      rewardsRemaining: episodeController?.rewardsRemaining ?? null,
+      episodeRewardCapacity: currentEpisodeRewardCapacity
+    },
+    currentAgent: {
+      type: experimentConfig?.agent?.type ?? null,
+      config: experimentConfig?.agent ?? {},
+      internalState: getAgentInternalState()
+    },
+    currentScores: {
+      humanScore,
+      agentScore
+    },
+    remainingRewards: episodeController?.rewardsRemaining ?? null,
+    stimulusLocations: (world?.positions || []).map(pos => ({
+      positionID: pos.positionID,
+      resolved: pos.resolved,
+      imageInstance: pos.imageInstance
+    })),
+    visitedLocations: (world?.positions || [])
+      .filter(pos => pos.resolved)
+      .map(pos => pos.positionID),
+    turn: currentTurn,
+    lastAgentSelectionId
+  };
+}
+
+function logStateSnapshot(reason, extra = {}){
+  experimentLogger.recordSnapshot(buildReplayState(), { reason, ...extra });
+}
+
+function finalizeExperimentLogging(reason){
+  if(sessionEnded) return;
+  sessionEnded = true;
+  if(currentBlockNumber !== null){
+    experimentLogger.logEvent('block_end', {
+      blockNumber: currentBlockNumber,
+      ruleIndex: currentRuleIndex,
+      reason
+    });
+  }
+  experimentLogger.endSession({
+    reason,
+    completedEpisodes: episodeController?.episodeNumber ?? 0,
+    finalScores: {
+      humanScore,
+      agentScore
+    }
+  });
+  window.__lastExperimentLog = experimentLogger.getSessionData();
 }
 
 function getExperimenterState(){
@@ -146,14 +307,62 @@ function startEpisode(){
   // Determine which rule will be active for the upcoming episode
   const upcomingEpisodeNumber = (episodeController.episodeNumber || 0) + 1;
   const activeForUpcoming = ruleScheduler ? ruleScheduler.getActiveRule(upcomingEpisodeNumber) : new Rule([]);
-  episodeController.resetEpisode(countRewards(imgs, activeForUpcoming));
+  currentEpisodeRewardCapacity = countRewards(imgs, activeForUpcoming);
+  episodeController.resetEpisode(currentEpisodeRewardCapacity);
   world.startEpisode(imgs);
   humanScore=0;
   agentScore=0;
+  lastAgentSelectionId=null;
   board.draw(world);
   updateScores();
   // Set the current rule for this episode (episodeNumber was incremented by resetEpisode)
   currentRule = ruleScheduler ? ruleScheduler.getActiveRule(episodeController.episodeNumber) : activeForUpcoming;
+  currentRuleIndex = getRuleIndexForEpisode(episodeController.episodeNumber);
+  const newBlockNumber = getBlockNumberForEpisode(episodeController.episodeNumber);
+
+  if(currentBlockNumber === null){
+    experimentLogger.logEvent('block_start', {
+      blockNumber: newBlockNumber,
+      ruleIndex: currentRuleIndex,
+      ruleFile: currentRuleIndex !== null ? currentRuleFiles[currentRuleIndex] : null
+    });
+  } else if(newBlockNumber !== currentBlockNumber){
+    experimentLogger.logEvent('block_end', {
+      blockNumber: currentBlockNumber,
+      ruleIndex: previousRuleIndex
+    });
+    experimentLogger.logEvent('block_start', {
+      blockNumber: newBlockNumber,
+      ruleIndex: currentRuleIndex,
+      ruleFile: currentRuleIndex !== null ? currentRuleFiles[currentRuleIndex] : null
+    });
+  }
+
+  if(previousRuleIndex !== null && currentRuleIndex !== previousRuleIndex){
+    experimentLogger.logEvent('rule_change', {
+      episodeNumber: episodeController.episodeNumber,
+      fromRuleIndex: previousRuleIndex,
+      toRuleIndex: currentRuleIndex,
+      fromRuleFile: currentRuleFiles[previousRuleIndex] || null,
+      toRuleFile: currentRuleFiles[currentRuleIndex] || null
+    });
+  }
+
+  currentBlockNumber = newBlockNumber;
+  previousRuleIndex = currentRuleIndex;
+
+  experimentLogger.logEvent('episode_start', {
+    blockNumber: currentBlockNumber,
+    episodeNumber: episodeController.episodeNumber,
+    ruleIndex: currentRuleIndex,
+    ruleFile: currentRuleIndex !== null ? currentRuleFiles[currentRuleIndex] : null,
+    rewardsAvailable: episodeController?.rewardsRemaining ?? null,
+    maxSelections: episodeController?.maxParticipantSelections ?? null
+  });
+  logStateSnapshot('episode_start', {
+    blockNumber: currentBlockNumber,
+    episodeNumber: episodeController.episodeNumber
+  });
   setTurn('human');
   updateExperimenterPanel();
 }
@@ -174,6 +383,27 @@ function makeSelection(id,actor){
   const r=(currentRule || new Rule([])).evaluate(p);
   const reward=r.reward;
   const repeat=r.repeat;
+
+  experimentLogger.logEvent('stimulus_selection', {
+    actor,
+    blockNumber: currentBlockNumber,
+    episodeNumber: episodeController?.episodeNumber ?? null,
+    moveNumber: episodeController?.participantSelections ?? null,
+    positionID: id,
+    stimulusID: p.imageInstance?.id ?? null,
+    repeated: Boolean(repeat)
+  });
+  if(repeat){
+    experimentLogger.logEvent('repeated_stimulus_selection', {
+      actor,
+      blockNumber: currentBlockNumber,
+      episodeNumber: episodeController?.episodeNumber ?? null,
+      moveNumber: episodeController?.participantSelections ?? null,
+      positionID: id,
+      stimulusID: p.imageInstance?.id ?? null
+    });
+  }
+
   if(!repeat){
     p.resolved=true;
     if(actor==='human'){
@@ -191,6 +421,39 @@ function makeSelection(id,actor){
   }
   board.feedback(id,reward);
   updateScores();
+
+  experimentLogger.logEvent(actor === 'human' ? 'human_move' : 'agent_move', {
+    blockNumber: currentBlockNumber,
+    episodeNumber: episodeController?.episodeNumber ?? null,
+    moveNumber: episodeController?.participantSelections ?? null,
+    positionID: id,
+    stimulusID: p.imageInstance?.id ?? null,
+    reward: Boolean(reward),
+    repeat: Boolean(repeat)
+  });
+
+  if(reward && !repeat){
+    experimentLogger.logEvent('reward_delivered', {
+      actor,
+      blockNumber: currentBlockNumber,
+      episodeNumber: episodeController?.episodeNumber ?? null,
+      moveNumber: episodeController?.participantSelections ?? null,
+      positionID: id,
+      stimulusID: p.imageInstance?.id ?? null,
+      rewardValue: 1,
+      rewardsRemaining: episodeController?.rewardsRemaining ?? null
+    });
+  }
+
+  experimentLogger.logEvent('score_update', {
+    blockNumber: currentBlockNumber,
+    episodeNumber: episodeController?.episodeNumber ?? null,
+    moveNumber: episodeController?.participantSelections ?? null,
+    humanScore,
+    agentScore,
+    rewardsRemaining: episodeController?.rewardsRemaining ?? null
+  });
+
   if(actor==='agent' && agent && typeof agent.receiveFeedback === 'function'){
     agent.receiveFeedback(p.imageInstance, p.imageInstance?.features || {}, Boolean(reward));
   }
@@ -211,8 +474,29 @@ function makeSelection(id,actor){
       rewarded: Boolean(reward)
     });
   }
+  logStateSnapshot('post_move', {
+    actor,
+    blockNumber: currentBlockNumber,
+    episodeNumber: episodeController?.episodeNumber ?? null,
+    moveNumber: episodeController?.participantSelections ?? null,
+    positionID: id,
+    stimulusID: p.imageInstance?.id ?? null,
+    reward: Boolean(reward),
+    repeat: Boolean(repeat)
+  });
   updateExperimenterPanel();
   if(episodeController.isEpisodeComplete()){
+    experimentLogger.logEvent('episode_end', {
+      blockNumber: currentBlockNumber,
+      episodeNumber: episodeController.episodeNumber,
+      moveCount: episodeController?.participantSelections ?? null,
+      rewardsRemaining: episodeController?.rewardsRemaining ?? null,
+      finalScores: { humanScore, agentScore }
+    });
+    logStateSnapshot('episode_end', {
+      blockNumber: currentBlockNumber,
+      episodeNumber: episodeController.episodeNumber
+    });
     if(agentMoveTimer!==null){
       clearTimeout(agentMoveTimer);
       agentMoveTimer=null;
@@ -230,6 +514,10 @@ function makeSelection(id,actor){
 }
 
 initializeGame();
+
+window.addEventListener('beforeunload', () => {
+  finalizeExperimentLogging('beforeunload');
+});
 
 function agentMove(){
   agentMoveTimer=null;

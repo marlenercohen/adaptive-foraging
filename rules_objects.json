@@ -1,0 +1,8 @@
+[
+  {
+    "type": "feature",
+    "feature": "object",
+    "operator": "==",
+    "value": 1
+  }
+]

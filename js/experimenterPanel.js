@@ -1,7 +1,10 @@
 class ExperimenterPanel {
-  constructor(containerId) {
+  constructor(containerId, options = {}) {
     this.el = document.getElementById(containerId);
     if (!this.el) return;
+    this.onDownloadSession = typeof options.onDownloadSession === 'function'
+      ? options.onDownloadSession
+      : null;
     this.el.classList.add('experimenter-panel');
     this.history = [];
     this.experimentState = {};
@@ -14,6 +17,7 @@ class ExperimenterPanel {
     this.el.innerHTML = `
       <div class="ep-header">
         <button type="button" class="expander">Experimenter ▸</button>
+        ${this.onDownloadSession ? '<button type="button" class="download-session-btn">Download Session</button>' : ''}
       </div>
       <div class="ep-content">
         <section class="ep-section">
@@ -62,8 +66,12 @@ class ExperimenterPanel {
       </div>`;
 
     this.expander = this.el.querySelector('.expander');
+    this.downloadBtn = this.el.querySelector('.download-session-btn');
     this.content = this.el.querySelector('.ep-content');
     this.expander.addEventListener('click', () => this.toggle());
+    if (this.downloadBtn && this.onDownloadSession) {
+      this.downloadBtn.addEventListener('click', () => this.onDownloadSession());
+    }
     this.collapsed = true;
     this.content.style.display = 'none';
   }
