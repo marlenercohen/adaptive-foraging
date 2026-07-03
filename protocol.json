@@ -1,0 +1,50 @@
+{
+  "name": "Adaptive Foraging Protocol v1",
+  "repeat": true,
+  "phases": [
+    {
+      "name": "Animals Phase",
+      "episodeCount": 3,
+      "stimulusMetadataFile": "stimuli/emoji/metadata.json",
+      "stimuliPerEpisode": 20,
+      "ruleFile": "rules_animals.json",
+      "agent": {
+        "type": "feature-learning"
+      },
+      "workingMemory": {
+        "decayTimeConstant": 5,
+        "memoryPenaltyWeight": 1.0
+      },
+      "rewardStructure": {
+        "rewardPerHit": 1
+      },
+      "episodeTerminationPolicy": {
+        "maxParticipantSelections": 20,
+        "endsOnRewardsExhausted": true,
+        "endsOnSelectionLimit": true
+      }
+    },
+    {
+      "name": "Objects Phase",
+      "episodeCount": 3,
+      "stimulusMetadataFile": "stimuli/emoji/metadata.json",
+      "stimuliPerEpisode": 20,
+      "ruleFile": "rules_objects.json",
+      "agent": {
+        "type": "feature-learning"
+      },
+      "workingMemory": {
+        "decayTimeConstant": 5,
+        "memoryPenaltyWeight": 1.0
+      },
+      "rewardStructure": {
+        "rewardPerHit": 1
+      },
+      "episodeTerminationPolicy": {
+        "maxParticipantSelections": 20,
+        "endsOnRewardsExhausted": true,
+        "endsOnSelectionLimit": true
+      }
+    }
+  ]
+}

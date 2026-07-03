@@ -1,12 +1,13 @@
 
 let experimentConfig=null;
+let protocolDefinition=null;
+let protocolEngine=null;
 let stimulusLibrary=null;
 let availableStimuli=[];
 let imgs=[];
 const world=new World();
 const logger=new Logger();
 const experimentLogger=new ExperimentLogger();
-let ruleScheduler=null;
 let currentRule=null;
 let agent=null;
 let agentFactory=new AgentFactory();
@@ -25,9 +26,12 @@ let agentMoveTimer=null;
 let episodeTransitionTimer=null;
 let currentRuleIndex=null;
 let currentBlockNumber=null;
-let previousRuleIndex=null;
+let currentPhaseInfo=null;
+let previousPhaseInfo=null;
+let currentAgentConfigKey=null;
 let loadedRuleDefinitions={};
-let currentRuleFiles=[];
+let phaseRuleInstancesByFile={};
+let stimulusLibrariesByFile={};
 let currentEpisodeRewardCapacity=0;
 let sessionEnded=false;
 
@@ -37,47 +41,103 @@ async function loadExperimentConfig(){
   return experimentConfig;
 }
 
-function buildStimulusImages(){
-  availableStimuli=stimulusLibrary.getAll();
-  const count = experimentConfig?.stimuliPerEpisode || 20;
+async function loadProtocolDefinition(filePath){
+  const response = await fetch(filePath);
+  return response.json();
+}
+
+async function preloadProtocolAssets(engine){
+  const phases = engine?.phases || [];
+  const stimulusFiles = [...new Set(phases.map(phase => phase.stimulusMetadataFile).filter(Boolean))];
+  const ruleFiles = [...new Set(phases.map(phase => phase.ruleFile).filter(Boolean))];
+
+  const stimulusEntries = await Promise.all(stimulusFiles.map(async (filePath) => {
+    const library = new StimulusLibrary(filePath);
+    await library.ready;
+    return [filePath, library];
+  }));
+  stimulusLibrariesByFile = Object.fromEntries(stimulusEntries);
+
+  const ruleEntries = await Promise.all(ruleFiles.map(async (filePath) => {
+    const response = await fetch(filePath);
+    const definitions = await response.json();
+    const normalizedDefinitions = Array.isArray(definitions) ? definitions : [];
+    const compiled = normalizedDefinitions
+      .map(createRuleFromDefinition)
+      .filter(Boolean);
+    return {
+      filePath,
+      definitions: normalizedDefinitions,
+      rule: new Rule(compiled)
+    };
+  }));
+
+  loadedRuleDefinitions = {};
+  phaseRuleInstancesByFile = {};
+  ruleEntries.forEach(entry => {
+    loadedRuleDefinitions[entry.filePath] = entry.definitions;
+    phaseRuleInstancesByFile[entry.filePath] = entry.rule;
+  });
+}
+
+function buildStimulusImagesForPhase(phase){
+  stimulusLibrary = stimulusLibrariesByFile[phase.stimulusMetadataFile] || null;
+  availableStimuli = stimulusLibrary ? stimulusLibrary.getAll() : [];
+
+  const count = phase?.stimuliPerEpisode || 20;
   imgs=Array.from({length:count},(_,i)=>({
     id:i,
-    label:stimulusLibrary.getById(i%availableStimuli.length)?.display || '',
-    features:stimulusLibrary.getById(i%availableStimuli.length)?.features || {}
+    label:stimulusLibrary?.getById(i%availableStimuli.length)?.display || '',
+    features:stimulusLibrary?.getById(i%availableStimuli.length)?.features || {}
   }));
-  episodeController=new EpisodeController(experimentConfig?.episodeLength || imgs.length);
+
+  const maxSelections = phase?.episodeTerminationPolicy?.maxParticipantSelections
+    || phase?.episodeLength
+    || imgs.length;
+  if(!episodeController){
+    episodeController = new EpisodeController(maxSelections);
+  }
+  episodeController.maxParticipantSelections = maxSelections;
+}
+
+function ensureAgentForPhase(phase){
+  const agentConfig = phase?.agent || {};
+  const workingMemoryConfig = phase?.workingMemory || {};
+  const configKey = JSON.stringify({ agentConfig, workingMemoryConfig });
+  if(!agent || configKey !== currentAgentConfigKey){
+    agent = agentFactory.createAgent(agentConfig, {
+      workingMemory: workingMemoryConfig
+    });
+    currentAgentConfigKey = configKey;
+  }
+}
+
+function applyPhaseForEpisode(episodeNumber){
+  if(!protocolEngine){
+    currentRule = new Rule([]);
+    currentPhaseInfo = null;
+    return null;
+  }
+  const info = protocolEngine.getPhaseForEpisode(episodeNumber);
+  const phase = info.phase;
+  buildStimulusImagesForPhase(phase);
+  ensureAgentForPhase(phase);
+  currentRule = phaseRuleInstancesByFile[phase.ruleFile] || new Rule([]);
+  currentPhaseInfo = info;
+  currentRuleIndex = info.phaseIndex;
+  return info;
 }
 
 async function initializeGame(){
   experimentConfig = await loadExperimentConfig();
-  stimulusLibrary = new StimulusLibrary(experimentConfig.stimulusMetadataFile);
-  await stimulusLibrary.ready;
-
-  // support either ruleFiles (array) or legacy ruleFile
-  const ruleFiles = experimentConfig.ruleFiles && Array.isArray(experimentConfig.ruleFiles)
-    ? experimentConfig.ruleFiles
-    : (experimentConfig.ruleFile ? [experimentConfig.ruleFile] : ['rules.json']);
-  currentRuleFiles = ruleFiles;
-
-  const rawRuleFiles = await Promise.all(ruleFiles.map(async (filePath) => {
-    const response = await fetch(filePath);
-    return { filePath, definitions: await response.json() };
-  }));
-  loadedRuleDefinitions = rawRuleFiles.reduce((acc, item) => {
-    acc[item.filePath] = item.definitions;
-    return acc;
-  }, {});
-
-  const loadedPerFile = await Promise.all(ruleFiles.map(f => loadRules(f)));
-  const ruleInstances = loadedPerFile.map(arr => new Rule(arr));
-  ruleScheduler = new RuleScheduler(ruleInstances, experimentConfig.episodesPerRule || Infinity);
+  protocolDefinition = await loadProtocolDefinition(experimentConfig.protocolFile || 'protocol.json');
+  protocolEngine = new ProtocolEngine(protocolDefinition);
+  await preloadProtocolAssets(protocolEngine);
 
   board.feedbackDurationMs = experimentConfig.feedbackDurationMs || board.feedbackDurationMs;
   agentDelayMs = experimentConfig.agentDelayMs || agentDelayMs;
-  agent = agentFactory.createAgent(experimentConfig.agent, {
-    workingMemory: experimentConfig.workingMemory || {}
-  });
-  buildStimulusImages();
+
+  applyPhaseForEpisode(1);
   initializeExperimentLogging();
   if (experimentConfig.debug && window.ExperimenterPanel) {
     experimenterPanel = new ExperimenterPanel('experimenter-panel', {
@@ -113,19 +173,6 @@ function downloadSessionLog(){
   URL.revokeObjectURL(url);
 }
 
-function getRuleIndexForEpisode(episodeNumber){
-  if(!ruleScheduler || !ruleScheduler.ruleInstances || !ruleScheduler.ruleInstances.length) return null;
-  const active = ruleScheduler.getActiveRule(episodeNumber);
-  const idx = ruleScheduler.ruleInstances.indexOf(active);
-  return idx >= 0 ? idx : null;
-}
-
-function getBlockNumberForEpisode(episodeNumber){
-  const E = experimentConfig?.episodesPerRule;
-  if(!isFinite(E) || E <= 0) return 1;
-  return Math.floor(((episodeNumber || 1) - 1) / E) + 1;
-}
-
 function getAgentInternalState(){
   if(!agent) return {};
   const state = {};
@@ -139,21 +186,21 @@ function getAgentInternalState(){
 }
 
 function initializeExperimentLogging(){
+  const allStimulusMetadata = Object.fromEntries(
+    Object.entries(stimulusLibrariesByFile).map(([filePath, library]) => [filePath, library.getAll()])
+  );
   const metadata = {
     timestamp: new Date().toISOString(),
     softwareVersion: document.title || 'unknown',
     experimentConfiguration: experimentConfig,
-    protocol: experimentConfig?.protocol ?? {},
-    stimulusMetadata: availableStimuli,
+    protocol: protocolEngine ? protocolEngine.getExecutedProtocol() : {},
+    stimulusMetadata: allStimulusMetadata,
     ruleDefinitions: loadedRuleDefinitions,
-    rewardStructure: {
-      episodesPerRule: experimentConfig?.episodesPerRule ?? null,
-      stimuliPerEpisode: experimentConfig?.stimuliPerEpisode ?? null,
-      rewardUnitValue: 1
-    },
-    agentConfiguration: experimentConfig?.agent ?? {},
-    workingMemoryConfiguration: experimentConfig?.workingMemory ?? {},
+    rewardStructure: currentPhaseInfo?.phase?.rewardStructure || { rewardPerHit: 1 },
+    agentConfiguration: currentPhaseInfo?.phase?.agent || {},
+    workingMemoryConfiguration: currentPhaseInfo?.phase?.workingMemory || {},
     episodeTerminationPolicy: {
+      ...(currentPhaseInfo?.phase?.episodeTerminationPolicy || {}),
       maxParticipantSelections: episodeController?.maxParticipantSelections ?? null,
       endsOnRewardsExhausted: true,
       endsOnSelectionLimit: true
@@ -167,22 +214,29 @@ function initializeExperimentLogging(){
 }
 
 function buildReplayState(){
+  const currentPhase = currentPhaseInfo?.phase || {};
   return {
     currentBlock: currentBlockNumber,
     currentEpisode: episodeController?.episodeNumber ?? null,
     currentMove: episodeController?.participantSelections ?? null,
+    currentPhase: {
+      name: currentPhase.name || null,
+      index: currentPhaseInfo?.phaseIndex ?? null,
+      episodeWithinPhase: currentPhaseInfo?.phaseEpisode ?? null
+    },
     currentRule: {
       index: currentRuleIndex,
-      file: currentRuleIndex !== null ? (currentRuleFiles[currentRuleIndex] || null) : null,
-      definition: currentRuleIndex !== null ? loadedRuleDefinitions[currentRuleFiles[currentRuleIndex]] : null
+      file: currentPhase.ruleFile || null,
+      definition: currentPhase.ruleFile ? loadedRuleDefinitions[currentPhase.ruleFile] : null
     },
     currentRewardStructure: {
+      ...(currentPhase.rewardStructure || {}),
       rewardsRemaining: episodeController?.rewardsRemaining ?? null,
       episodeRewardCapacity: currentEpisodeRewardCapacity
     },
     currentAgent: {
-      type: experimentConfig?.agent?.type ?? null,
-      config: experimentConfig?.agent ?? {},
+      type: currentPhase?.agent?.type ?? null,
+      config: currentPhase?.agent ?? {},
       internalState: getAgentInternalState()
     },
     currentScores: {
@@ -213,7 +267,9 @@ function finalizeExperimentLogging(reason){
   if(currentBlockNumber !== null){
     experimentLogger.logEvent('block_end', {
       blockNumber: currentBlockNumber,
-      ruleIndex: currentRuleIndex,
+      phaseIndex: currentRuleIndex,
+      phaseName: currentPhaseInfo?.phase?.name || null,
+      ruleFile: currentPhaseInfo?.phase?.ruleFile || null,
       reason
     });
   }
@@ -231,17 +287,11 @@ function finalizeExperimentLogging(reason){
 function getExperimenterState(){
   const episodeNum = episodeController ? episodeController.episodeNumber : 0;
   const moveNum = episodeController ? episodeController.participantSelections : 0;
-  let ruleIndex = null;
-  if(ruleScheduler && ruleScheduler.ruleInstances && currentRule){
-    ruleIndex = ruleScheduler.ruleInstances.indexOf(currentRule);
-    if(ruleIndex<0) ruleIndex = null;
-  }
-  const ruleLabel = (ruleIndex!==null && experimentConfig && experimentConfig.ruleFiles)
-    ? `${experimentConfig.ruleFiles[ruleIndex] || ('rule#'+ruleIndex)}`
-    : (ruleIndex!==null ? `rule#${ruleIndex}` : '-');
-  const agentType = experimentConfig?.agent?.type || '-';
+  const phase = currentPhaseInfo?.phase || null;
+  const ruleLabel = phase ? `${phase.name} (${phase.ruleFile || '-'})` : '-';
+  const agentType = phase?.agent?.type || '-';
   const rewardsRemaining = episodeController?.rewardsRemaining ?? '-';
-  const episodesUntilNextSwitch = ruleScheduler ? ruleScheduler.episodesUntilNextSwitch(episodeController?.episodeNumber || 0) : Infinity;
+  const episodesUntilNextSwitch = protocolEngine ? protocolEngine.episodesUntilNextPhase(episodeController?.episodeNumber || 1) : Infinity;
   return {episodeName: experimentConfig?.name ?? '-', episodeNumber:episodeNum, moveNumber:moveNum, ruleLabel, agentType, rewardsRemaining, episodesUntilNextSwitch};
 }
 
@@ -308,9 +358,10 @@ function startEpisode(){
     clearTimeout(agentMoveTimer);
     agentMoveTimer=null;
   }
-  // Determine which rule will be active for the upcoming episode
+
   const upcomingEpisodeNumber = (episodeController.episodeNumber || 0) + 1;
-  const activeForUpcoming = ruleScheduler ? ruleScheduler.getActiveRule(upcomingEpisodeNumber) : new Rule([]);
+  const nextPhaseInfo = applyPhaseForEpisode(upcomingEpisodeNumber);
+  const activeForUpcoming = currentRule || new Rule([]);
   currentEpisodeRewardCapacity = countRewards(imgs, activeForUpcoming);
   episodeController.resetEpisode(currentEpisodeRewardCapacity);
   world.startEpisode(imgs);
@@ -322,47 +373,52 @@ function startEpisode(){
   lastAgentSelectionId=null;
   board.draw(world);
   updateScores();
-  // Set the current rule for this episode (episodeNumber was incremented by resetEpisode)
-  currentRule = ruleScheduler ? ruleScheduler.getActiveRule(episodeController.episodeNumber) : activeForUpcoming;
-  currentRuleIndex = getRuleIndexForEpisode(episodeController.episodeNumber);
-  const newBlockNumber = getBlockNumberForEpisode(episodeController.episodeNumber);
+  currentRule = currentRule || activeForUpcoming;
+  currentRuleIndex = nextPhaseInfo?.phaseIndex ?? null;
+  const newBlockNumber = nextPhaseInfo?.blockNumber ?? 1;
 
   if(currentBlockNumber === null){
     experimentLogger.logEvent('block_start', {
       blockNumber: newBlockNumber,
-      ruleIndex: currentRuleIndex,
-      ruleFile: currentRuleIndex !== null ? currentRuleFiles[currentRuleIndex] : null
+      phaseIndex: currentRuleIndex,
+      phaseName: currentPhaseInfo?.phase?.name || null,
+      ruleFile: currentPhaseInfo?.phase?.ruleFile || null
     });
   } else if(newBlockNumber !== currentBlockNumber){
     experimentLogger.logEvent('block_end', {
       blockNumber: currentBlockNumber,
-      ruleIndex: previousRuleIndex
+      phaseIndex: previousPhaseInfo?.phaseIndex ?? null,
+      phaseName: previousPhaseInfo?.phase?.name || null,
+      ruleFile: previousPhaseInfo?.phase?.ruleFile || null
     });
     experimentLogger.logEvent('block_start', {
       blockNumber: newBlockNumber,
-      ruleIndex: currentRuleIndex,
-      ruleFile: currentRuleIndex !== null ? currentRuleFiles[currentRuleIndex] : null
+      phaseIndex: currentRuleIndex,
+      phaseName: currentPhaseInfo?.phase?.name || null,
+      ruleFile: currentPhaseInfo?.phase?.ruleFile || null
     });
   }
 
-  if(previousRuleIndex !== null && currentRuleIndex !== previousRuleIndex){
+  if(previousPhaseInfo && previousPhaseInfo.phase?.ruleFile !== currentPhaseInfo?.phase?.ruleFile){
     experimentLogger.logEvent('rule_change', {
       episodeNumber: episodeController.episodeNumber,
-      fromRuleIndex: previousRuleIndex,
-      toRuleIndex: currentRuleIndex,
-      fromRuleFile: currentRuleFiles[previousRuleIndex] || null,
-      toRuleFile: currentRuleFiles[currentRuleIndex] || null
+      fromPhaseIndex: previousPhaseInfo.phaseIndex,
+      toPhaseIndex: currentPhaseInfo?.phaseIndex ?? null,
+      fromRuleFile: previousPhaseInfo.phase?.ruleFile || null,
+      toRuleFile: currentPhaseInfo?.phase?.ruleFile || null
     });
   }
 
   currentBlockNumber = newBlockNumber;
-  previousRuleIndex = currentRuleIndex;
+  previousPhaseInfo = currentPhaseInfo;
 
   experimentLogger.logEvent('episode_start', {
     blockNumber: currentBlockNumber,
+    phaseIndex: currentPhaseInfo?.phaseIndex ?? null,
+    phaseName: currentPhaseInfo?.phase?.name || null,
     episodeNumber: episodeController.episodeNumber,
     ruleIndex: currentRuleIndex,
-    ruleFile: currentRuleIndex !== null ? currentRuleFiles[currentRuleIndex] : null,
+    ruleFile: currentPhaseInfo?.phase?.ruleFile || null,
     rewardsAvailable: episodeController?.rewardsRemaining ?? null,
     maxSelections: episodeController?.maxParticipantSelections ?? null
   });
