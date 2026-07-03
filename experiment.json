@@ -11,5 +11,9 @@
   "agent": {
     "type": "feature-learning"
   },
+  "workingMemory": {
+    "decayTimeConstant": 5,
+    "memoryPenaltyWeight": 1.0
+  },
   "debug": true
 }

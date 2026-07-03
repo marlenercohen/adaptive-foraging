@@ -8,9 +8,13 @@ class RandomAgent{
 }
 
 class FeatureLearningAgent{
- constructor(){
+ constructor(options = {}){
    this.weights={};
    this.learningRate=0.1;
+   const wmConfig = options.workingMemory || {};
+   this.workingMemory = new ExponentialWorkingMemory(wmConfig);
+   const configuredPenalty = Number(wmConfig.memoryPenaltyWeight);
+   this.memoryPenaltyWeight = Number.isFinite(configuredPenalty) ? configuredPenalty : 1.0;
  }
 
  makeFeatureKey(feature,value){
@@ -46,16 +50,26 @@ class FeatureLearningAgent{
    });
  }
 
- choose(world){
-   const unresolvedPositions=world.positions.filter(p=>!p.resolved);
-   if(!unresolvedPositions.length)return undefined;
+ onEpisodeStart(){
+   this.workingMemory.resetEpisode();
+ }
 
-   const scored=unresolvedPositions.map(position=>{
+ observeStimulusSelection(positionID){
+   this.workingMemory.recordVisit(positionID);
+ }
+
+ choose(world){
+   const allPositions = world.positions || [];
+   if(!allPositions.length)return undefined;
+
+   const scored=allPositions.map(position=>{
      const features=position.imageInstance?.features || {};
-     const score=Object.entries(features).reduce((total,[feature,value])=>{
+     const featureScore=Object.entries(features).reduce((total,[feature,value])=>{
        this.ensureFeature(feature,value);
        return total + (this.weights[this.makeFeatureKey(feature,value)] || 0);
      },0);
+     const memoryStrength = this.workingMemory.getStrength(position.positionID);
+     const score = featureScore - (this.memoryPenaltyWeight * memoryStrength);
      return {position,score};
    });
 

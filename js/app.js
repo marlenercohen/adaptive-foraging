@@ -74,7 +74,9 @@ async function initializeGame(){
 
   board.feedbackDurationMs = experimentConfig.feedbackDurationMs || board.feedbackDurationMs;
   agentDelayMs = experimentConfig.agentDelayMs || agentDelayMs;
-  agent = agentFactory.createAgent(experimentConfig.agent);
+  agent = agentFactory.createAgent(experimentConfig.agent, {
+    workingMemory: experimentConfig.workingMemory || {}
+  });
   buildStimulusImages();
   initializeExperimentLogging();
   if (experimentConfig.debug && window.ExperimenterPanel) {
@@ -312,6 +314,9 @@ function startEpisode(){
   currentEpisodeRewardCapacity = countRewards(imgs, activeForUpcoming);
   episodeController.resetEpisode(currentEpisodeRewardCapacity);
   world.startEpisode(imgs);
+  if(agent && typeof agent.onEpisodeStart === 'function'){
+    agent.onEpisodeStart();
+  }
   humanScore=0;
   agentScore=0;
   lastAgentSelectionId=null;
@@ -387,6 +392,9 @@ function makeSelection(id,actor){
   const r=(currentRule || new Rule([])).evaluate(p);
   const reward=r.reward;
   const repeat=r.repeat;
+  if(agent && typeof agent.observeStimulusSelection === 'function'){
+    agent.observeStimulusSelection(id);
+  }
 
   experimentLogger.logEvent('stimulus_selection', {
     actor,
