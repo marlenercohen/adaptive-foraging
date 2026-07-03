@@ -13,4 +13,15 @@ text-shadow:0 0 0 rgba(0,0,0,0.25),0 0 12px rgba(255,255,255,0.9);
 .experimenter-panel{position:fixed;right:16px;top:16px;width:220px;background:#f3f4f6;border:1px solid #e5e7eb;border-radius:6px;padding:8px;font-size:13px;box-shadow:0 6px 18px rgba(0,0,0,0.08)}
 .experimenter-panel .expander{cursor:pointer;font-weight:600;padding:6px}
 .experimenter-panel .content{padding:6px;border-top:1px solid #e5e7eb}
+.experimenter-panel .ep-header{display:flex;justify-content:space-between;align-items:center;margin-bottom:8px}
+.experimenter-panel .expander{cursor:pointer;font-weight:600;padding:6px;background:#e5e7eb;border:none;border-radius:4px}
+.experimenter-panel .ep-section{margin-bottom:12px}
+.experimenter-panel .ep-section h3{margin:0 0 6px;font-size:14px}
+.experimenter-panel .ep-grid{display:grid;grid-template-columns:1fr 1fr;gap:6px}
+.experimenter-panel .ep-table-wrapper{max-height:180px;overflow:auto;margin-top:8px}
+.experimenter-panel table{width:100%;border-collapse:collapse;font-size:12px}
+.experimenter-panel th,.experimenter-panel td{padding:4px 6px;border:1px solid #d1d5db;text-align:left}
+.experimenter-panel tbody tr:nth-child(odd){background:#fff}
+.experimenter-panel tbody tr:nth-child(even){background:#f9fafb}
+.experimenter-panel tbody tr.chosen-row{background:#e0f2fe;font-weight:600}
 .experimenter-panel .row{margin:6px 0}

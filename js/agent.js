@@ -38,6 +38,12 @@ class FeatureLearningAgent{
      return;
    }
    this.updateWeights(features,reward);
+   console.log('FeatureLearningAgent feedback', {
+     stimulus: stimulus.id,
+     features,
+     reward,
+     weights: {...this.weights}
+   });
  }
 
  choose(world){

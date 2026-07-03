@@ -1,7 +1,7 @@
 {
   "name": "Adaptive Foraging",
   "stimulusMetadataFile": "stimuli/emoji/metadata.json",
-  "ruleFiles": ["rules_animals.json", "rules_vehicles.json"],
+  "ruleFiles": [ "rules_animals.json","rules_vehicles.json"],
   "episodesPerRule": 2,
   "numEpisodes": 10,
   "stimuliPerEpisode": 20,
@@ -10,5 +10,6 @@
   "agentDelayMs": 700,
   "agent": {
     "type": "feature-learning"
-  }
+  },
+  "debug": true
 }

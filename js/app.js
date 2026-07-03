@@ -13,6 +13,7 @@ let episodeController=null;
 const board=new Board("board",id=>makeSelection(id,'human'));
 let experimenterPanel=null;
 let currentTurn='human';
+let lastAgentSelectionId=null;
 let agentDelayMs=700;
 const episodePauseMs=1000;
 let humanScore=0;
@@ -55,8 +56,7 @@ async function initializeGame(){
   agentDelayMs = experimentConfig.agentDelayMs || agentDelayMs;
   agent = agentFactory.createAgent(experimentConfig.agent);
   buildStimulusImages();
-  // create experimenter panel and show initial state
-  if(window.ExperimenterPanel){
+  if (experimentConfig.debug && window.ExperimenterPanel) {
     experimenterPanel = new ExperimenterPanel('experimenter-panel');
   }
   startEpisode();
@@ -65,6 +65,7 @@ async function initializeGame(){
 
 function getExperimenterState(){
   const episodeNum = episodeController ? episodeController.episodeNumber : 0;
+  const moveNum = episodeController ? episodeController.participantSelections : 0;
   let ruleIndex = null;
   if(ruleScheduler && ruleScheduler.ruleInstances && currentRule){
     ruleIndex = ruleScheduler.ruleInstances.indexOf(currentRule);
@@ -76,12 +77,53 @@ function getExperimenterState(){
   const agentType = experimentConfig?.agent?.type || '-';
   const rewardsRemaining = episodeController?.rewardsRemaining ?? '-';
   const episodesUntilNextSwitch = ruleScheduler ? ruleScheduler.episodesUntilNextSwitch(episodeController?.episodeNumber || 0) : Infinity;
-  return {episodeNumber:episodeNum, ruleIndex:ruleLabel, agentType, rewardsRemaining, episodesUntilNextSwitch};
+  return {episodeName: experimentConfig?.name ?? '-', episodeNumber:episodeNum, moveNumber:moveNum, ruleLabel, agentType, rewardsRemaining, episodesUntilNextSwitch};
+}
+
+function getAgentScoreForFeatures(features){
+  if(!agent) return 0;
+  if(typeof agent.scoreFeatures === 'function'){
+    return agent.scoreFeatures(features);
+  }
+
+  const weights = agent.weights || {};
+  return Object.entries(features || {}).reduce((sum,[feature,value])=>{
+    const key = `${feature}=${value}`;
+    return sum + (weights[key] || 0);
+  },0);
+}
+
+function buildPredictionRows(){
+  if(!world || !experimenterPanel) return [];
+  const activeRule = currentRule || new Rule([]);
+  const unresolved = world.positions.filter(p=>!p.resolved);
+  const rows = [...unresolved];
+
+  if(lastAgentSelectionId !== null){
+    const lastSelection = world.getPosition(lastAgentSelectionId);
+    if(lastSelection && lastSelection.resolved && !unresolved.some(p => p.positionID === lastSelection.positionID)){
+      rows.push(lastSelection);
+    }
+  }
+
+  return rows.map(position=>{
+    const features = position.imageInstance?.features || {};
+    const score = getAgentScoreForFeatures(features);
+    const reward = activeRule.evaluate(position).reward;
+    return {
+      id: position.positionID,
+      icon: position.imageInstance?.label || '',
+      score,
+      rewarded: reward,
+      chosen: position.positionID === lastAgentSelectionId
+    };
+  });
 }
 
 function updateExperimenterPanel(){
   if(!experimenterPanel) return;
-  experimenterPanel.update(getExperimenterState());
+  experimenterPanel.updateExperiment(getExperimenterState());
+  experimenterPanel.updatePredictions(buildPredictionRows());
 }
 
 function countRewards(images, activeRule){
@@ -152,7 +194,23 @@ function makeSelection(id,actor){
   if(actor==='agent' && agent && typeof agent.receiveFeedback === 'function'){
     agent.receiveFeedback(p.imageInstance, p.imageInstance?.features || {}, Boolean(reward));
   }
-  logger.log("selection",{actor,positionID:id,imageID:p.imageInstance.id,reward:Boolean(reward),repeat,humanScore,agentScore,episodeNumber:episodeController.episodeNumber,participantSelectionsRemaining:Math.max(0,episodeController.maxParticipantSelections-episodeController.participantSelections)});
+  logger.log("selection",{actor,positionID:id,imageID:p.imageInstance.id,reward:Boolean(reward),repeat,humanScore,agentScore,episodeNumber:episodeController.episodeNumber,participantSelectionsRemaining:Math.max(0,episodeController.maxParticipantSelections)});
+  if(actor === 'agent'){
+    lastAgentSelectionId = id;
+  }
+  if(experimenterPanel){
+    experimenterPanel.updateAgent({
+      lastStimulus: p.imageInstance?.id,
+      lastRewarded: Boolean(reward),
+      weights: agent?.weights || {}
+    });
+    experimenterPanel.pushMove({
+      episode: episodeController.episodeNumber,
+      move: episodeController.participantSelections,
+      stimulus: p.imageInstance?.id,
+      rewarded: Boolean(reward)
+    });
+  }
   updateExperimenterPanel();
   if(episodeController.isEpisodeComplete()){
     if(agentMoveTimer!==null){
