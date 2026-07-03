@@ -1,10 +1,30 @@
 {
   "name": "Adaptive Foraging Protocol v1",
   "repeat": true,
+  "repeatFromPhase": 1,
   "phases": [
     {
+      "name": "Practice",
+      "episodeCount": 1,
+      "stimulusMetadataFile": "stimuli/emoji/metadata.json",
+      "stimuliPerEpisode": 20,
+      "ruleFile": "rules_animals.json",
+      "agent": {
+        "type": "random"
+      },
+      "rewardStructure": {
+        "type": "individual",
+        "rewardPerHit": 1
+      },
+      "episodeTerminationPolicy": {
+        "maxParticipantSelections": 20,
+        "endsOnRewardsExhausted": true,
+        "endsOnSelectionLimit": true
+      }
+    },
+    {
       "name": "Animals Phase",
-      "episodeCount": 3,
+      "episodeCount": 1,
       "stimulusMetadataFile": "stimuli/emoji/metadata.json",
       "stimuliPerEpisode": 20,
       "ruleFile": "rules_animals.json",
@@ -27,7 +47,7 @@
     },
     {
       "name": "Objects Phase",
-      "episodeCount": 3,
+      "episodeCount": 1,
       "stimulusMetadataFile": "stimuli/emoji/metadata.json",
       "stimuliPerEpisode": 20,
       "ruleFile": "rules_objects.json",

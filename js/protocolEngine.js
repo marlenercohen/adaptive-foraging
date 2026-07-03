@@ -3,7 +3,17 @@ class ProtocolEngine {
     this.protocol = this.normalizeProtocol(protocolDefinition);
     this.phases = this.protocol.phases;
     this.repeat = this.protocol.repeat !== false;
-    this.totalEpisodesPerCycle = this.phases.reduce((sum, phase) => sum + phase.episodeCount, 0);
+    this.repeatFromPhase = this.protocol.repeatFromPhase;
+    this.introEpisodes = this.phases
+      .slice(0, this.repeatFromPhase)
+      .reduce((sum, phase) => sum + phase.episodeCount, 0);
+    this.totalEpisodesPerCycle = this.phases
+      .slice(this.repeatFromPhase)
+      .reduce((sum, phase) => sum + phase.episodeCount, 0);
+
+    if (this.repeat && this.totalEpisodesPerCycle <= 0) {
+      throw new Error('Protocol repeat requires at least one cycling phase.');
+    }
   }
 
   normalizeProtocol(definition) {
@@ -31,43 +41,72 @@ class ProtocolEngine {
       };
     });
 
+    const requestedRepeatFrom = definition?.repeatFromPhase ?? definition?.cycleStartPhaseIndex;
+    const repeatFromPhase = Number.isInteger(Number(requestedRepeatFrom))
+      ? Math.min(Math.max(Number(requestedRepeatFrom), 0), normalizedPhases.length - 1)
+      : 0;
+
     return {
       name: definition?.name || 'Protocol',
       repeat: definition?.repeat !== false,
+      repeatFromPhase,
       phases: normalizedPhases
+    };
+  }
+
+  locatePhase(episodeInWindow, startPhaseIndex, endPhaseIndexExclusive) {
+    let remaining = episodeInWindow;
+    for (let i = startPhaseIndex; i < endPhaseIndexExclusive; i += 1) {
+      const phase = this.phases[i];
+      if (remaining <= phase.episodeCount) {
+        return {
+          phase,
+          phaseIndex: i,
+          phaseEpisode: remaining
+        };
+      }
+      remaining -= phase.episodeCount;
+    }
+    const fallbackIndex = Math.max(startPhaseIndex, endPhaseIndexExclusive - 1);
+    const fallbackPhase = this.phases[fallbackIndex];
+    return {
+      phase: fallbackPhase,
+      phaseIndex: fallbackIndex,
+      phaseEpisode: fallbackPhase?.episodeCount || 1
     };
   }
 
   getPhaseForEpisode(episodeNumber) {
     const ep = Math.max(1, Number(episodeNumber) || 1);
-    const cycleEpisode = this.repeat
-      ? ((ep - 1) % this.totalEpisodesPerCycle) + 1
-      : Math.min(ep, this.totalEpisodesPerCycle);
-    let remaining = cycleEpisode;
 
-    for (let i = 0; i < this.phases.length; i += 1) {
-      const phase = this.phases[i];
-      if (remaining <= phase.episodeCount) {
-        const cycleIndex = Math.floor((ep - 1) / this.totalEpisodesPerCycle);
-        const blockNumber = this.repeat
-          ? (cycleIndex * this.phases.length) + i + 1
-          : i + 1;
-        return {
-          phase,
-          phaseIndex: i,
-          phaseEpisode: remaining,
-          blockNumber
-        };
-      }
-      remaining -= phase.episodeCount;
+    if (!this.repeat) {
+      const allEpisodes = this.phases.reduce((sum, phase) => sum + phase.episodeCount, 0);
+      const clamped = Math.min(ep, allEpisodes);
+      const located = this.locatePhase(clamped, 0, this.phases.length);
+      return {
+        ...located,
+        blockNumber: located.phaseIndex + 1
+      };
     }
 
-    const lastIndex = this.phases.length - 1;
+    if (ep <= this.introEpisodes) {
+      const located = this.locatePhase(ep, 0, this.repeatFromPhase);
+      return {
+        ...located,
+        blockNumber: located.phaseIndex + 1
+      };
+    }
+
+    const cycleEpisode = ((ep - this.introEpisodes - 1) % this.totalEpisodesPerCycle) + 1;
+    const cycleIndex = Math.floor((ep - this.introEpisodes - 1) / this.totalEpisodesPerCycle);
+    const located = this.locatePhase(cycleEpisode, this.repeatFromPhase, this.phases.length);
+    const cyclePhaseCount = this.phases.length - this.repeatFromPhase;
+    const cyclePhaseOffset = located.phaseIndex - this.repeatFromPhase;
+    const blockNumber = this.repeatFromPhase + (cycleIndex * cyclePhaseCount) + cyclePhaseOffset + 1;
+
     return {
-      phase: this.phases[lastIndex],
-      phaseIndex: lastIndex,
-      phaseEpisode: this.phases[lastIndex].episodeCount,
-      blockNumber: lastIndex + 1
+      ...located,
+      blockNumber
     };
   }
 
