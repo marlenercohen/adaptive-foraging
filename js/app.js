@@ -9,8 +9,10 @@ const world=new World();
 const logger=new Logger();
 const experimentLogger=new ExperimentLogger();
 let currentRule=null;
+let currentRewardStructure=null;
 let agent=null;
 let agentFactory=new AgentFactory();
+let rewardStructureFactory=new RewardStructureFactory();
 let episodeController=null;
 const board=new Board("board",id=>makeSelection(id,'human'));
 let experimenterPanel=null;
@@ -29,6 +31,7 @@ let currentBlockNumber=null;
 let currentPhaseInfo=null;
 let previousPhaseInfo=null;
 let currentAgentConfigKey=null;
+let currentRewardStructureConfigKey=null;
 let loadedRuleDefinitions={};
 let phaseRuleInstancesByFile={};
 let stimulusLibrariesByFile={};
@@ -112,6 +115,15 @@ function ensureAgentForPhase(phase){
   }
 }
 
+function ensureRewardStructureForPhase(phase){
+  const rewardStructureConfig = phase?.rewardStructure || { type: 'individual', rewardPerHit: 1 };
+  const configKey = JSON.stringify(rewardStructureConfig);
+  if(!currentRewardStructure || configKey !== currentRewardStructureConfigKey){
+    currentRewardStructure = rewardStructureFactory.create(rewardStructureConfig);
+    currentRewardStructureConfigKey = configKey;
+  }
+}
+
 function applyPhaseForEpisode(episodeNumber){
   if(!protocolEngine){
     currentRule = new Rule([]);
@@ -122,6 +134,7 @@ function applyPhaseForEpisode(episodeNumber){
   const phase = info.phase;
   buildStimulusImagesForPhase(phase);
   ensureAgentForPhase(phase);
+  ensureRewardStructureForPhase(phase);
   currentRule = phaseRuleInstancesByFile[phase.ruleFile] || new Rule([]);
   currentPhaseInfo = info;
   currentRuleIndex = info.phaseIndex;
@@ -448,6 +461,7 @@ function makeSelection(id,actor){
   const r=(currentRule || new Rule([])).evaluate(p);
   const reward=r.reward;
   const repeat=r.repeat;
+  let rewardAllocation = null;
   if(agent && typeof agent.observeStimulusSelection === 'function'){
     agent.observeStimulusSelection(id);
   }
@@ -479,13 +493,29 @@ function makeSelection(id,actor){
     }
     if(reward){
       world.addReward(1);
-      if(actor==='human'){
-        humanScore+=1;
-        humanTotalScore+=1;
-      } else {
-        agentScore+=1;
-        agentTotalScore+=1;
-      }
+      rewardAllocation = (currentRewardStructure || rewardStructureFactory.create({ type: 'individual', rewardPerHit: 1 }))
+        .distributeReward({
+          actor,
+          reward: true,
+          gameState: {
+            blockNumber: currentBlockNumber,
+            episodeNumber: episodeController?.episodeNumber ?? null,
+            moveNumber: episodeController?.participantSelections ?? null,
+            scores: {
+              humanScore,
+              agentScore,
+              humanTotalScore,
+              agentTotalScore
+            }
+          }
+        });
+
+      const humanDelta = rewardAllocation?.allocation?.humanDelta || 0;
+      const agentDelta = rewardAllocation?.allocation?.agentDelta || 0;
+      humanScore += humanDelta;
+      humanTotalScore += humanDelta;
+      agentScore += agentDelta;
+      agentTotalScore += agentDelta;
       episodeController.recordRewardCollected();
     }
   }
@@ -511,6 +541,7 @@ function makeSelection(id,actor){
       positionID: id,
       stimulusID: p.imageInstance?.id ?? null,
       rewardValue: 1,
+      rewardAllocation,
       rewardsRemaining: episodeController?.rewardsRemaining ?? null
     });
   }

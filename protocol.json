@@ -16,6 +16,7 @@
         "memoryPenaltyWeight": 1.0
       },
       "rewardStructure": {
+        "type": "individual",
         "rewardPerHit": 1
       },
       "episodeTerminationPolicy": {
@@ -38,6 +39,7 @@
         "memoryPenaltyWeight": 1.0
       },
       "rewardStructure": {
+        "type": "individual",
         "rewardPerHit": 1
       },
       "episodeTerminationPolicy": {
