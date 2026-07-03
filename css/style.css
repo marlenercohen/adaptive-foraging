@@ -1,5 +1,6 @@
 
 body{font-family:Arial;margin:30px}
+.score-row{margin:4px 0}
 #board{display:grid;grid-template-columns:repeat(5,90px);gap:10px}
 .tile{position:relative;width:90px;height:90px;font-size:40px;border-radius:8px;cursor:pointer;transition:box-shadow .2s ease,transform .2s ease}
 .tile.selected{box-shadow:0 0 0 4px #facc15,0 0 16px 6px rgba(250,204,21,0.75);transform:scale(1.03)}

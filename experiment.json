@@ -2,7 +2,7 @@
   "name": "Adaptive Foraging",
   "stimulusMetadataFile": "stimuli/emoji/metadata.json",
   "ruleFiles": [ "rules_animals.json","rules_objects.json"],
-  "episodesPerRule": 2,
+  "episodesPerRule": 3,
   "numEpisodes": 10,
   "stimuliPerEpisode": 20,
   "episodeLength": 20,

@@ -19,6 +19,8 @@ let agentDelayMs=700;
 const episodePauseMs=1000;
 let humanScore=0;
 let agentScore=0;
+let humanTotalScore=0;
+let agentTotalScore=0;
 let agentMoveTimer=null;
 let episodeTransitionTimer=null;
 let currentRuleIndex=null;
@@ -370,6 +372,8 @@ function startEpisode(){
 function updateScores(){
   document.getElementById("human-score").textContent="Human score: "+humanScore;
   document.getElementById("agent-score").textContent="Agent score: "+agentScore;
+  document.getElementById("human-total-score").textContent="Human Total Score: "+humanTotalScore;
+  document.getElementById("agent-total-score").textContent="Agent Total Score: "+agentTotalScore;
 }
 
 function setTurn(turn){
@@ -413,8 +417,10 @@ function makeSelection(id,actor){
       world.addReward(1);
       if(actor==='human'){
         humanScore+=1;
+        humanTotalScore+=1;
       } else {
         agentScore+=1;
+        agentTotalScore+=1;
       }
       episodeController.recordRewardCollected();
     }
@@ -451,6 +457,8 @@ function makeSelection(id,actor){
     moveNumber: episodeController?.participantSelections ?? null,
     humanScore,
     agentScore,
+    humanTotalScore,
+    agentTotalScore,
     rewardsRemaining: episodeController?.rewardsRemaining ?? null
   });
 
