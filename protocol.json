@@ -17,9 +17,9 @@
         "rewardPerHit": 1
       },
       "episodeTerminationPolicy": {
-        "maxParticipantSelections": 20,
-        "endsOnRewardsExhausted": true,
-        "endsOnSelectionLimit": true
+        "type": "standard",
+        "maxMoves": 4,
+        "endWhenRewardsExhausted": true
       }
     },
     {
@@ -40,9 +40,9 @@
         "rewardPerHit": 1
       },
       "episodeTerminationPolicy": {
-        "maxParticipantSelections": 20,
-        "endsOnRewardsExhausted": true,
-        "endsOnSelectionLimit": true
+        "type": "standard",
+        "maxMoves": 10,
+        "endWhenRewardsExhausted": true
       }
     },
     {
@@ -63,9 +63,9 @@
         "rewardPerHit": 1
       },
       "episodeTerminationPolicy": {
-        "maxParticipantSelections": 20,
-        "endsOnRewardsExhausted": true,
-        "endsOnSelectionLimit": true
+        "type": "standard",
+        "maxMoves": 10,
+        "endWhenRewardsExhausted": true
       }
     }
   ]

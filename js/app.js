@@ -13,6 +13,7 @@ let currentRewardStructure=null;
 let agent=null;
 let agentFactory=new AgentFactory();
 let rewardStructureFactory=new RewardStructureFactory();
+let episodeTerminationPolicyFactory=new EpisodeTerminationPolicyFactory();
 let episodeController=null;
 const board=new Board("board",id=>makeSelection(id,'human'));
 let experimenterPanel=null;
@@ -32,6 +33,8 @@ let currentPhaseInfo=null;
 let previousPhaseInfo=null;
 let currentAgentConfigKey=null;
 let currentRewardStructureConfigKey=null;
+let currentEpisodeTerminationPolicy=null;
+let currentEpisodeTerminationPolicyConfigKey=null;
 let loadedRuleDefinitions={};
 let phaseRuleInstancesByFile={};
 let stimulusLibrariesByFile={};
@@ -124,6 +127,23 @@ function ensureRewardStructureForPhase(phase){
   }
 }
 
+function ensureEpisodeTerminationPolicyForPhase(phase){
+  const policyConfig = phase?.episodeTerminationPolicy || {
+    type: 'standard',
+    maxMoves: 20,
+    endWhenRewardsExhausted: true
+  };
+  const configKey = JSON.stringify(policyConfig);
+  if(!currentEpisodeTerminationPolicy || configKey !== currentEpisodeTerminationPolicyConfigKey){
+    currentEpisodeTerminationPolicy = episodeTerminationPolicyFactory.create(policyConfig);
+    currentEpisodeTerminationPolicyConfigKey = configKey;
+  }
+
+  if(episodeController){
+    episodeController.maxParticipantSelections = currentEpisodeTerminationPolicy.maxMoves;
+  }
+}
+
 function applyPhaseForEpisode(episodeNumber){
   if(!protocolEngine){
     currentRule = new Rule([]);
@@ -135,6 +155,7 @@ function applyPhaseForEpisode(episodeNumber){
   buildStimulusImagesForPhase(phase);
   ensureAgentForPhase(phase);
   ensureRewardStructureForPhase(phase);
+  ensureEpisodeTerminationPolicyForPhase(phase);
   currentRule = phaseRuleInstancesByFile[phase.ruleFile] || new Rule([]);
   currentPhaseInfo = info;
   currentRuleIndex = info.phaseIndex;
@@ -458,6 +479,9 @@ function setTurn(turn){
 function makeSelection(id,actor){
   if(currentTurn!==actor)return;
   const p=world.getPosition(id);
+  if(episodeController && typeof episodeController.recordSelection === 'function'){
+    episodeController.recordSelection();
+  }
   const r=(currentRule || new Rule([])).evaluate(p);
   const reward=r.reward;
   const repeat=r.repeat;
@@ -588,12 +612,23 @@ function makeSelection(id,actor){
     repeat: Boolean(repeat)
   });
   updateExperimenterPanel();
-  if(episodeController.isEpisodeComplete()){
+  const terminationDecision = (currentEpisodeTerminationPolicy || episodeTerminationPolicyFactory.create({
+    type: 'standard',
+    maxMoves: episodeController?.maxParticipantSelections ?? 20,
+    endWhenRewardsExhausted: true
+  })).evaluate({
+    moveCount: episodeController?.totalSelections ?? episodeController?.participantSelections ?? 0,
+    rewardsRemaining: episodeController?.rewardsRemaining ?? 0
+  });
+
+  if(terminationDecision.shouldEnd){
     experimentLogger.logEvent('episode_end', {
       blockNumber: currentBlockNumber,
       episodeNumber: episodeController.episodeNumber,
-      moveCount: episodeController?.participantSelections ?? null,
+      moveCount: episodeController?.totalSelections ?? episodeController?.participantSelections ?? null,
+      participantMoveCount: episodeController?.participantSelections ?? null,
       rewardsRemaining: episodeController?.rewardsRemaining ?? null,
+      terminationReasons: terminationDecision.reasons,
       finalScores: { humanScore, agentScore }
     });
     logStateSnapshot('episode_end', {

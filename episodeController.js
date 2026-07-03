@@ -2,6 +2,7 @@ class EpisodeController {
   constructor(maxParticipantSelections = 0) {
     this.episodeNumber = 0;
     this.participantSelections = 0;
+    this.totalSelections = 0;
     this.maxParticipantSelections = maxParticipantSelections;
     this.rewardsRemaining = 0;
   }
@@ -9,7 +10,12 @@ class EpisodeController {
   resetEpisode(rewardCount) {
     this.episodeNumber += 1;
     this.participantSelections = 0;
+    this.totalSelections = 0;
     this.rewardsRemaining = rewardCount;
+  }
+
+  recordSelection() {
+    this.totalSelections += 1;
   }
 
   recordParticipantSelection() {
