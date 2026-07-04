@@ -1,0 +1,21 @@
+{
+  "kind": "rules",
+  "version": "1.0",
+  "definitions": [
+    {
+      "id": "rules_animals.json",
+      "displayName": "Animals",
+      "description": "Rewards animal-related stimuli according to the rule table."
+    },
+    {
+      "id": "rules_objects.json",
+      "displayName": "Objects",
+      "description": "Rewards object-related stimuli according to the rule table."
+    },
+    {
+      "id": "rules_vehicles.json",
+      "displayName": "Vehicles",
+      "description": "Rewards vehicle-related stimuli according to the rule table."
+    }
+  ]
+}

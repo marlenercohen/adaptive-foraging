@@ -4,6 +4,7 @@ function loadExperimentDesigner() {
   const descriptionEl = document.getElementById('designer-description');
   const listEl = document.getElementById('designer-block-list');
   const detailsEl = document.getElementById('designer-block-details');
+  let resolver = null;
   if (!root || !summaryEl || !descriptionEl || !listEl || !detailsEl) return;
 
   function escapeHtml(value) {
@@ -62,11 +63,28 @@ function loadExperimentDesigner() {
   }
 
   function renderDetails(block) {
-    const ruleName = block?.rule?.displayName || block?.rule?.name || block?.ruleFile || '-';
+    const ruleName = resolver
+      ? resolver.resolveRule(block?.ruleFile).displayName
+      : (block?.rule?.displayName || block?.rule?.name || block?.ruleFile || '-');
+    const stimulusSetName = resolver
+      ? resolver.resolveStimulusSet(block?.stimulusSet).displayName
+      : block?.stimulusSet;
     const reward = block?.rewardStructure || {};
     const workingMemory = block?.workingMemory || {};
     const termination = block?.episodeTerminationPolicy || {};
     const agent = block?.agent || {};
+    const agentTypeName = resolver
+      ? resolver.resolveAgent(agent?.type).displayName
+      : agent?.type;
+    const rewardTypeName = resolver
+      ? resolver.resolveRewardStructure(reward?.type).displayName
+      : reward?.type;
+    const terminationTypeName = resolver
+      ? resolver.resolveEpisodeTerminationPolicy(termination?.type).displayName
+      : termination?.type;
+    const workingMemoryTypeName = resolver
+      ? resolver.resolveWorkingMemoryModel(workingMemory?.type).displayName
+      : (workingMemory?.type || 'default');
 
     const sections = [];
     sections.push(renderSection('General', [
@@ -75,7 +93,7 @@ function loadExperimentDesigner() {
     ]));
 
     sections.push(renderSection('Stimulus', [
-      { label: 'Stimulus set', value: formatValue(block?.stimulusSet) }
+      { label: 'Stimulus set', value: formatValue(stimulusSetName) }
     ]));
 
     sections.push(renderSection('Rule', [
@@ -83,22 +101,23 @@ function loadExperimentDesigner() {
     ]));
 
     sections.push(renderSection('Agent', [
-      { label: 'Agent type', value: formatValue(agent?.type) },
+      { label: 'Agent type', value: formatValue(agentTypeName) },
       ...buildRowsFromObject(agent, ['type'])
     ]));
 
     sections.push(renderSection('Reward Structure', [
-      { label: 'Type', value: formatValue(reward?.type) },
+      { label: 'Type', value: formatValue(rewardTypeName) },
       ...buildRowsFromObject(reward, ['type'])
     ]));
 
     sections.push(renderSection('Working Memory', [
+      { label: 'Type', value: formatValue(workingMemoryTypeName) },
       { label: 'Decay constant', value: formatValue(workingMemory?.decayTimeConstant) },
-      ...buildRowsFromObject(workingMemory, ['decayTimeConstant'])
+      ...buildRowsFromObject(workingMemory, ['type', 'decayTimeConstant'])
     ]));
 
     sections.push(renderSection('Episode Termination', [
-      { label: 'Type', value: formatValue(termination?.type) },
+      { label: 'Type', value: formatValue(terminationTypeName) },
       { label: 'Max moves', value: formatValue(termination?.maxMoves ?? termination?.maxParticipantSelections) },
       { label: 'End when rewards exhausted', value: formatValue(termination?.endWhenRewardsExhausted ?? termination?.endsOnRewardsExhausted) },
       ...buildRowsFromObject(termination, ['type', 'maxMoves', 'maxParticipantSelections', 'endWhenRewardsExhausted', 'endsOnRewardsExhausted'])
@@ -114,13 +133,21 @@ function loadExperimentDesigner() {
     const card = document.createElement('button');
     card.type = 'button';
     card.className = 'designer-block-card';
-    const agentType = block?.agent?.type || '-';
+    const agentType = resolver
+      ? resolver.resolveAgent(block?.agent?.type).displayName
+      : (block?.agent?.type || '-');
+    const stimulusSet = resolver
+      ? resolver.resolveStimulusSet(block?.stimulusSet).displayName
+      : block?.stimulusSet;
+    const ruleName = resolver
+      ? resolver.resolveRule(block?.ruleFile).displayName
+      : block?.ruleFile;
     card.innerHTML = `
       <h5 class="designer-block-title">${escapeHtml(getDisplayText(block?.name, `Block ${index + 1}`))}</h5>
       <div class="designer-block-meta">
         <div><strong>Episodes:</strong> ${escapeHtml(getDisplayText(block?.episodeCount, '-'))}</div>
-        <div><strong>Stimulus set:</strong> ${escapeHtml(getDisplayText(block?.stimulusSet, '-'))}</div>
-        <div><strong>Rule:</strong> ${escapeHtml(getDisplayText(block?.ruleFile, '-'))}</div>
+        <div><strong>Stimulus set:</strong> ${escapeHtml(getDisplayText(stimulusSet, '-'))}</div>
+        <div><strong>Rule:</strong> ${escapeHtml(getDisplayText(ruleName, '-'))}</div>
         <div><strong>Agent:</strong> ${escapeHtml(getDisplayText(agentType, '-'))}</div>
       </div>
     `;
@@ -165,6 +192,11 @@ function loadExperimentDesigner() {
         throw new Error(`Failed to load ${protocolPath} (HTTP ${protocolResponse.status})`);
       }
       const protocol = await protocolResponse.json();
+
+      if (window.DesignerDefinitionResolver) {
+        resolver = new DesignerDefinitionResolver();
+        await resolver.initialize(protocol);
+      }
 
       renderSummary(protocol);
       renderBlocks(protocol);

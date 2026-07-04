@@ -1,0 +1,16 @@
+{
+  "kind": "workingMemoryModels",
+  "version": "1.0",
+  "definitions": [
+    {
+      "id": "default",
+      "displayName": "Default Working Memory",
+      "description": "Uses the agent's default working-memory model for the selected agent type."
+    },
+    {
+      "id": "exponential-decay",
+      "displayName": "Exponential Decay",
+      "description": "Working memory trace decays exponentially across moves."
+    }
+  ]
+}

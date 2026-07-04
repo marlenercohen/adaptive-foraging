@@ -1,0 +1,11 @@
+{
+  "kind": "episodeTerminationPolicies",
+  "version": "1.0",
+  "definitions": [
+    {
+      "id": "standard",
+      "displayName": "Standard",
+      "description": "Ends when rewards are exhausted or the move limit is reached."
+    }
+  ]
+}

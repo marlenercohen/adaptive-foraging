@@ -1,0 +1,31 @@
+{
+  "kind": "agents",
+  "version": "1.0",
+  "definitions": [
+    {
+      "id": "random",
+      "displayName": "Random",
+      "description": "Selects among available options without feature-based valuation."
+    },
+    {
+      "id": "feature-learning",
+      "displayName": "Feature Learning",
+      "description": "Learns feature-value weights from reward feedback."
+    },
+    {
+      "id": "reinforcement-learning",
+      "displayName": "Reinforcement Learning",
+      "description": "Placeholder definition for reinforcement-learning agents."
+    },
+    {
+      "id": "imitation",
+      "displayName": "Imitation",
+      "description": "Placeholder definition for imitation agents."
+    },
+    {
+      "id": "hybrid",
+      "displayName": "Hybrid",
+      "description": "Placeholder definition for hybrid agents."
+    }
+  ]
+}

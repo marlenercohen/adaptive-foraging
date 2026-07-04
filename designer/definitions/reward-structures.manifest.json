@@ -1,0 +1,11 @@
+{
+  "kind": "rewardStructures",
+  "version": "1.0",
+  "definitions": [
+    {
+      "id": "individual",
+      "displayName": "Individual",
+      "description": "Rewards are assigned only to the actor who earned them."
+    }
+  ]
+}
