@@ -43,6 +43,13 @@ let stimulusSetDescriptorsByName={};
 let currentEpisodeRewardCapacity=0;
 let sessionEnded=false;
 
+const appRuntime = window.APP_RUNTIME || {};
+const isDebugMode = appRuntime.mode === 'debug';
+const appFeatures = {
+  experimenterPanel: isDebugMode && appRuntime.features?.experimenterPanel !== false,
+  sessionDownload: isDebugMode && appRuntime.features?.sessionDownload !== false
+};
+
 async function loadExperimentConfig(){
   const response = await fetch('experiment.json');
   experimentConfig = await response.json();
@@ -181,9 +188,9 @@ async function initializeGame(){
 
   applyPhaseForEpisode(1);
   initializeExperimentLogging();
-  if (experimentConfig.debug && window.ExperimenterPanel) {
+  if (appFeatures.experimenterPanel && window.ExperimenterPanel) {
     experimenterPanel = new ExperimenterPanel('experimenter-panel', {
-      onDownloadSession: downloadSessionLog
+      onDownloadSession: appFeatures.sessionDownload ? downloadSessionLog : null
     });
   }
   startEpisode();
