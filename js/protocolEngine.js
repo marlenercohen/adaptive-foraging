@@ -31,7 +31,7 @@ class ProtocolEngine {
       return {
         name: phase.name || `Phase ${index + 1}`,
         episodeCount: Math.floor(episodeCount),
-        stimulusMetadataFile: phase.stimulusMetadataFile,
+        stimulusSet: phase.stimulusSet || null,
         stimuliPerEpisode: phase.stimuliPerEpisode,
         ruleFile: phase.ruleFile,
         agent: phase.agent || {},

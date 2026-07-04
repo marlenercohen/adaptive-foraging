@@ -3,6 +3,7 @@ let experimentConfig=null;
 let protocolDefinition=null;
 let protocolEngine=null;
 let stimulusLibrary=null;
+let stimulusRegistry=new StimulusRegistry();
 let availableStimuli=[];
 let imgs=[];
 const world=new World();
@@ -37,7 +38,8 @@ let currentEpisodeTerminationPolicy=null;
 let currentEpisodeTerminationPolicyConfigKey=null;
 let loadedRuleDefinitions={};
 let phaseRuleInstancesByFile={};
-let stimulusLibrariesByFile={};
+let stimulusLibrariesBySet={};
+let stimulusSetDescriptorsByName={};
 let currentEpisodeRewardCapacity=0;
 let sessionEnded=false;
 
@@ -54,15 +56,21 @@ async function loadProtocolDefinition(filePath){
 
 async function preloadProtocolAssets(engine){
   const phases = engine?.phases || [];
-  const stimulusFiles = [...new Set(phases.map(phase => phase.stimulusMetadataFile).filter(Boolean))];
+  const stimulusSets = [...new Set(phases.map(phase => phase.stimulusSet).filter(Boolean))];
   const ruleFiles = [...new Set(phases.map(phase => phase.ruleFile).filter(Boolean))];
 
-  const stimulusEntries = await Promise.all(stimulusFiles.map(async (filePath) => {
-    const library = new StimulusLibrary(filePath);
+  const stimulusEntries = await Promise.all(stimulusSets.map(async (setName) => {
+    const descriptor = await stimulusRegistry.resolve(setName);
+    const library = new StimulusLibrary(descriptor.metadataFile);
     await library.ready;
-    return [filePath, library];
+    return [setName, { descriptor, library }];
   }));
-  stimulusLibrariesByFile = Object.fromEntries(stimulusEntries);
+  stimulusSetDescriptorsByName = {};
+  stimulusLibrariesBySet = {};
+  stimulusEntries.forEach(([setName, payload]) => {
+    stimulusSetDescriptorsByName[setName] = payload.descriptor;
+    stimulusLibrariesBySet[setName] = payload.library;
+  });
 
   const ruleEntries = await Promise.all(ruleFiles.map(async (filePath) => {
     const response = await fetch(filePath);
@@ -87,7 +95,7 @@ async function preloadProtocolAssets(engine){
 }
 
 function buildStimulusImagesForPhase(phase){
-  stimulusLibrary = stimulusLibrariesByFile[phase.stimulusMetadataFile] || null;
+  stimulusLibrary = stimulusLibrariesBySet[phase.stimulusSet] || null;
   availableStimuli = stimulusLibrary ? stimulusLibrary.getAll() : [];
 
   const count = phase?.stimuliPerEpisode || 20;
@@ -221,13 +229,17 @@ function getAgentInternalState(){
 
 function initializeExperimentLogging(){
   const allStimulusMetadata = Object.fromEntries(
-    Object.entries(stimulusLibrariesByFile).map(([filePath, library]) => [filePath, library.getAll()])
+    Object.entries(stimulusLibrariesBySet).map(([setName, library]) => [setName, library.getAll()])
+  );
+  const resolvedStimulusSets = Object.fromEntries(
+    Object.entries(stimulusSetDescriptorsByName).map(([setName, descriptor]) => [setName, { ...descriptor }])
   );
   const metadata = {
     timestamp: new Date().toISOString(),
     softwareVersion: document.title || 'unknown',
     experimentConfiguration: experimentConfig,
     protocol: protocolEngine ? protocolEngine.getExecutedProtocol() : {},
+    resolvedStimulusSets,
     stimulusMetadata: allStimulusMetadata,
     ruleDefinitions: loadedRuleDefinitions,
     rewardStructure: currentPhaseInfo?.phase?.rewardStructure || { rewardPerHit: 1 },
@@ -256,7 +268,8 @@ function buildReplayState(){
     currentPhase: {
       name: currentPhase.name || null,
       index: currentPhaseInfo?.phaseIndex ?? null,
-      episodeWithinPhase: currentPhaseInfo?.phaseEpisode ?? null
+      episodeWithinPhase: currentPhaseInfo?.phaseEpisode ?? null,
+      stimulusSet: currentPhase.stimulusSet || null
     },
     currentRule: {
       index: currentRuleIndex,

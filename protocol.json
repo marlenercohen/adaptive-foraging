@@ -6,7 +6,7 @@
     {
       "name": "Practice",
       "episodeCount": 1,
-      "stimulusMetadataFile": "stimuli/emoji/metadata.json",
+      "stimulusSet": "emoji",
       "stimuliPerEpisode": 20,
       "ruleFile": "rules_animals.json",
       "agent": {
@@ -25,7 +25,7 @@
     {
       "name": "Animals Phase",
       "episodeCount": 1,
-      "stimulusMetadataFile": "stimuli/emoji/metadata.json",
+      "stimulusSet": "emoji",
       "stimuliPerEpisode": 20,
       "ruleFile": "rules_animals.json",
       "agent": {
@@ -48,7 +48,7 @@
     {
       "name": "Objects Phase",
       "episodeCount": 1,
-      "stimulusMetadataFile": "stimuli/emoji/metadata.json",
+      "stimulusSet": "emoji",
       "stimuliPerEpisode": 20,
       "ruleFile": "rules_objects.json",
       "agent": {
