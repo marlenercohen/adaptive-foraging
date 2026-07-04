@@ -27,3 +27,30 @@ text-shadow:0 0 0 rgba(0,0,0,0.25),0 0 12px rgba(255,255,255,0.9);
 .experimenter-panel tbody tr:nth-child(even){background:#f9fafb}
 .experimenter-panel tbody tr.chosen-row{background:#e0f2fe;font-weight:600}
 .experimenter-panel .row{margin:6px 0}
+
+/* Experiment Designer (read-only) */
+.designer{margin-top:28px;padding:14px;border:1px solid #d1d5db;border-radius:8px;background:#f8fafc}
+.designer-header h3{margin:0 0 8px}
+.designer-summary{font-size:14px;font-weight:600;margin-bottom:4px}
+.designer-description{margin:0 0 12px;color:#334155}
+.designer-layout{display:grid;grid-template-columns:minmax(260px,360px) 1fr;gap:12px}
+.designer-block-list{display:flex;flex-direction:column;gap:8px;max-height:420px;overflow:auto}
+.designer-block-card{border:1px solid #cbd5e1;border-radius:8px;background:#fff;padding:10px;cursor:pointer;text-align:left}
+.designer-block-card:hover{border-color:#94a3b8}
+.designer-block-card.selected{border-color:#2563eb;box-shadow:0 0 0 2px rgba(37,99,235,0.15)}
+.designer-block-title{margin:0 0 6px;font-size:15px}
+.designer-block-meta{display:grid;grid-template-columns:1fr;gap:2px;font-size:13px;color:#0f172a}
+.designer-details{border:1px solid #cbd5e1;border-radius:8px;background:#fff;padding:10px;min-height:220px}
+.designer-details h4{margin:0 0 8px}
+#designer-block-details{margin:0;font-size:12px;line-height:1.45}
+.designer-sections{display:flex;flex-direction:column;gap:10px}
+.designer-section{border:1px solid #e2e8f0;border-radius:6px;padding:8px;background:#f8fafc}
+.designer-section h5{margin:0 0 6px;font-size:13px;color:#0f172a}
+.designer-kv{display:grid;grid-template-columns:minmax(140px,180px) 1fr;gap:4px 10px;align-items:start}
+.designer-k{font-weight:600;color:#334155}
+.designer-v{color:#0f172a;white-space:pre-wrap;word-break:break-word}
+.designer-v-inline-code{font-family:ui-monospace,SFMono-Regular,Menlo,monospace;font-size:12px;background:#eef2ff;border-radius:4px;padding:0 4px}
+@media (max-width: 860px){
+	.designer-layout{grid-template-columns:1fr}
+	.designer-kv{grid-template-columns:1fr}
+}
