@@ -2,14 +2,10 @@ class StimulusRegistry {
   constructor(entries = null) {
     this.entries = entries || {
       emoji: {
-        name: 'emoji',
-        displayName: 'Emoji',
-        description: 'Unicode emoji stimulus set',
-        version: '1.0',
-        imageDirectory: 'images/',
-        metadataFile: 'stimuli/emoji/metadata.json'
+        manifestFile: 'stimuli/emoji/manifest.json'
       }
     };
+    this.supportedFeatureTypes = new Set(['boolean', 'categorical', 'continuous']);
   }
 
   getEntry(setName) {
@@ -23,17 +19,84 @@ class StimulusRegistry {
     if (!entry) {
       throw new Error(`Stimulus set "${setName}" is not registered.`);
     }
-    if (!entry.name || typeof entry.name !== 'string') {
-      throw new Error(`Stimulus set "${setName}" is missing required field "name".`);
+    if (!entry.manifestFile || typeof entry.manifestFile !== 'string') {
+      throw new Error(`Stimulus set "${setName}" is missing required field "manifestFile".`);
     }
-    if (!entry.displayName || typeof entry.displayName !== 'string') {
-      throw new Error(`Stimulus set "${setName}" is missing required field "displayName".`);
+  }
+
+  validateFeatureSchema(setName, features) {
+    if (!Array.isArray(features)) {
+      throw new Error(`Stimulus set "${setName}" must define a "features" array.`);
     }
-    if (!entry.metadataFile || typeof entry.metadataFile !== 'string') {
-      throw new Error(`Stimulus set "${setName}" is missing required field "metadataFile".`);
+
+    const featureNames = new Set();
+    features.forEach((feature, index) => {
+      if (!feature || typeof feature !== 'object') {
+        throw new Error(`Feature schema entry ${index} in set "${setName}" must be an object.`);
+      }
+      if (!feature.name || typeof feature.name !== 'string') {
+        throw new Error(`Feature schema entry ${index} in set "${setName}" is missing required field "name".`);
+      }
+      if (featureNames.has(feature.name)) {
+        throw new Error(`Feature schema in set "${setName}" contains duplicate feature name "${feature.name}".`);
+      }
+      featureNames.add(feature.name);
+
+      if (!feature.displayName || typeof feature.displayName !== 'string') {
+        throw new Error(`Feature "${feature.name}" in set "${setName}" is missing required field "displayName".`);
+      }
+
+      if (!feature.type || !this.supportedFeatureTypes.has(feature.type)) {
+        throw new Error(`Feature "${feature.name}" in set "${setName}" has unsupported type "${feature.type}".`);
+      }
+
+      if (feature.type === 'categorical') {
+        if (!Array.isArray(feature.values) || feature.values.length === 0) {
+          throw new Error(`Categorical feature "${feature.name}" in set "${setName}" must define non-empty "values".`);
+        }
+      }
+
+      if (feature.type === 'continuous' && feature.units !== undefined && typeof feature.units !== 'string') {
+        throw new Error(`Continuous feature "${feature.name}" in set "${setName}" has invalid "units"; expected a string.`);
+      }
+    });
+  }
+
+  validateStimulusSetDefinition(setName, definition) {
+    if (!definition || typeof definition !== 'object') {
+      throw new Error(`Stimulus set definition for "${setName}" must be an object.`);
     }
-    if (!entry.imageDirectory || typeof entry.imageDirectory !== 'string') {
-      throw new Error(`Stimulus set "${setName}" is missing required field "imageDirectory".`);
+    if (!definition.name || typeof definition.name !== 'string') {
+      throw new Error(`Stimulus set definition for "${setName}" is missing required field "name".`);
+    }
+    if (!definition.displayName || typeof definition.displayName !== 'string') {
+      throw new Error(`Stimulus set definition for "${setName}" is missing required field "displayName".`);
+    }
+    if (!definition.metadataFile || typeof definition.metadataFile !== 'string') {
+      throw new Error(`Stimulus set definition for "${setName}" is missing required field "metadataFile".`);
+    }
+    if (!definition.imageDirectory || typeof definition.imageDirectory !== 'string') {
+      throw new Error(`Stimulus set definition for "${setName}" is missing required field "imageDirectory".`);
+    }
+    this.validateFeatureSchema(setName, definition.features);
+  }
+
+  async loadJsonOrThrow(path, setName, label) {
+    let response;
+    try {
+      response = await fetch(path);
+    } catch (error) {
+      throw new Error(`Failed to fetch ${label} for stimulus set "${setName}" from ${path}: ${error?.message || String(error)}`);
+    }
+
+    if (!response.ok) {
+      throw new Error(`${label.charAt(0).toUpperCase() + label.slice(1)} file for stimulus set "${setName}" could not be loaded from ${path} (HTTP ${response.status}).`);
+    }
+
+    try {
+      return await response.json();
+    } catch (error) {
+      throw new Error(`${label.charAt(0).toUpperCase() + label.slice(1)} file for stimulus set "${setName}" is not valid JSON: ${error?.message || String(error)}`);
     }
   }
 
@@ -59,38 +122,25 @@ class StimulusRegistry {
   }
 
   async resolve(setName) {
-    const rawEntry = this.getEntry(setName);
-    const entry = {
+    const entry = this.getEntry(setName);
+    this.validateEntry(setName, entry);
+
+    const manifest = await this.loadJsonOrThrow(entry.manifestFile, setName, 'manifest');
+    const definition = {
       name: setName,
       displayName: setName,
       description: '',
       version: '1.0',
-      ...rawEntry
+      ...manifest
     };
-    this.validateEntry(setName, entry);
+    this.validateStimulusSetDefinition(setName, definition);
 
-    let response;
-    try {
-      response = await fetch(entry.metadataFile);
-    } catch (error) {
-      throw new Error(`Failed to fetch metadata for stimulus set "${setName}" from ${entry.metadataFile}: ${error?.message || String(error)}`);
-    }
-
-    if (!response.ok) {
-      throw new Error(`Metadata file for stimulus set "${setName}" could not be loaded from ${entry.metadataFile} (HTTP ${response.status}).`);
-    }
-
-    let data;
-    try {
-      data = await response.json();
-    } catch (error) {
-      throw new Error(`Metadata file for stimulus set "${setName}" is not valid JSON: ${error?.message || String(error)}`);
-    }
+    const data = await this.loadJsonOrThrow(definition.metadataFile, setName, 'metadata');
 
     this.validateMetadataRows(setName, data);
 
     return {
-      ...entry,
+      ...definition,
       key: setName
     };
   }

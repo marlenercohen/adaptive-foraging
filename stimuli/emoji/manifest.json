@@ -1,0 +1,40 @@
+{
+  "name": "emoji",
+  "displayName": "Emoji",
+  "description": "Unicode emoji stimulus set",
+  "version": "1.0",
+  "imageDirectory": "images/",
+  "metadataFile": "stimuli/emoji/metadata.json",
+  "features": [
+    {
+      "name": "animal",
+      "displayName": "Animal",
+      "type": "boolean"
+    },
+    {
+      "name": "object",
+      "displayName": "Object",
+      "type": "boolean"
+    },
+    {
+      "name": "mammal",
+      "displayName": "Mammal",
+      "type": "boolean"
+    },
+    {
+      "name": "bird",
+      "displayName": "Bird",
+      "type": "boolean"
+    },
+    {
+      "name": "marine",
+      "displayName": "Marine",
+      "type": "boolean"
+    },
+    {
+      "name": "vehicle",
+      "displayName": "Vehicle",
+      "type": "boolean"
+    }
+  ]
+}
