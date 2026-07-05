@@ -7,6 +7,7 @@
       "name": "Practice",
       "episodeCount": 1,
       "stimulusSet": "emoji",
+      "stimulusPopulation": [0,1,2,3,4,5,6,7,8,9,0,1,2,3,4,5,6,7,8,9],
       "stimuliPerEpisode": 20,
       "ruleFile": "rules_animals.json",
       "agent": {
@@ -26,6 +27,7 @@
       "name": "Animals Phase",
       "episodeCount": 1,
       "stimulusSet": "emoji",
+      "stimulusPopulation": [0,1,2,3,4,5,6,7,8,9,0,1,2,3,4,5,6,7,8,9],
       "stimuliPerEpisode": 20,
       "ruleFile": "rules_animals.json",
       "agent": {
@@ -49,6 +51,7 @@
       "name": "Objects Phase",
       "episodeCount": 1,
       "stimulusSet": "emoji",
+      "stimulusPopulation": [0,1,2,3,4,5,6,7,8,9,0,1,2,3,4,5,6,7,8,9],
       "stimuliPerEpisode": 20,
       "ruleFile": "rules_objects.json",
       "agent": {

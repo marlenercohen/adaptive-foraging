@@ -32,6 +32,7 @@ class ProtocolEngine {
         name: phase.name || `Phase ${index + 1}`,
         episodeCount: Math.floor(episodeCount),
         stimulusSet: phase.stimulusSet || null,
+        stimulusPopulation: Array.isArray(phase.stimulusPopulation) ? [...phase.stimulusPopulation] : null,
         stimuliPerEpisode: phase.stimuliPerEpisode,
         ruleFile: phase.ruleFile,
         agent: phase.agent || {},

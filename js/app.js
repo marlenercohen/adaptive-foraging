@@ -106,10 +106,16 @@ function buildStimulusImagesForPhase(phase){
   availableStimuli = stimulusLibrary ? stimulusLibrary.getAll() : [];
 
   const count = phase?.stimuliPerEpisode || 20;
-  imgs=Array.from({length:count},(_,i)=>({
-    id:i,
-    label:stimulusLibrary?.getById(i%availableStimuli.length)?.display || '',
-    features:stimulusLibrary?.getById(i%availableStimuli.length)?.features || {}
+  const samplingPopulation = buildStimulusPopulationForPhase(phase, availableStimuli);
+  if(samplingPopulation.length < count){
+    throw new Error(
+      `Phase "${phase?.name || 'Unnamed phase'}" defines a stimulus population with ${samplingPopulation.length} entries, ` +
+      `but stimuliPerEpisode requires ${count}.`
+    );
+  }
+  imgs = sampleStimulusPopulation(samplingPopulation, count).map(stimulus => ({
+    ...stimulus,
+    label: stimulus?.label || stimulus?.display || ''
   }));
 
   const maxSelections = phase?.episodeTerminationPolicy?.maxParticipantSelections
@@ -119,6 +125,37 @@ function buildStimulusImagesForPhase(phase){
     episodeController = new EpisodeController(maxSelections);
   }
   episodeController.maxParticipantSelections = maxSelections;
+}
+
+function buildStimulusPopulationForPhase(phase, allStimuli){
+  const populationIds = Array.isArray(phase?.stimulusPopulation)
+    ? phase.stimulusPopulation
+    : null;
+
+  if(!populationIds){
+    return [...allStimuli];
+  }
+
+  return populationIds.map((stimulusId, index) => {
+    const stimulus = stimulusLibrary?.getById(stimulusId) || null;
+    if(!stimulus){
+      throw new Error(
+        `Phase "${phase?.name || 'Unnamed phase'}" references unknown stimulus ID ${JSON.stringify(stimulusId)} ` +
+        `at stimulusPopulation[${index}] in stimulus set "${phase?.stimulusSet || 'unknown'}".`
+      );
+    }
+    return stimulus;
+  });
+}
+
+function sampleStimulusPopulation(population, count){
+  const pool = [...population];
+  const sampled = [];
+  while(sampled.length < count){
+    const index = Math.floor(Math.random() * pool.length);
+    sampled.push(pool.splice(index, 1)[0]);
+  }
+  return sampled;
 }
 
 function ensureAgentForPhase(phase){
