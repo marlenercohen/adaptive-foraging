@@ -1,6 +1,6 @@
 {
   "name": "Adaptive Foraging Protocol v1",
-  "repeat": true,
+  "repeat": false,
   "repeatFromPhase": 1,
   "phases": [
     {
@@ -19,7 +19,7 @@
       },
       "episodeTerminationPolicy": {
         "type": "standard",
-        "maxMoves": 4,
+        "maxMoves": 10,
         "endWhenRewardsExhausted": true
       }
     },

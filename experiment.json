@@ -3,5 +3,7 @@
   "protocolFile": "protocol.json",
   "feedbackDurationMs": 500,
   "agentDelayMs": 700,
+  "episodeCompletionDelayMs": 2000,
+  "inactivityTimeoutMs": 15000,
   "debug": true
 }

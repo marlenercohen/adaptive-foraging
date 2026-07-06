@@ -21,13 +21,15 @@ let experimenterPanel=null;
 let currentTurn='human';
 let lastAgentSelectionId=null;
 let agentDelayMs=700;
-const episodePauseMs=1000;
+let episodeCompletionDelayMs=2000;
+let inactivityTimeoutMs=15000;
 let humanScore=0;
 let agentScore=0;
 let humanTotalScore=0;
 let agentTotalScore=0;
 let agentMoveTimer=null;
 let episodeTransitionTimer=null;
+let inactivityTimer=null;
 let currentRuleIndex=null;
 let currentBlockNumber=null;
 let currentPhaseInfo=null;
@@ -222,6 +224,12 @@ async function initializeGame(){
 
   board.feedbackDurationMs = experimentConfig.feedbackDurationMs || board.feedbackDurationMs;
   agentDelayMs = experimentConfig.agentDelayMs || agentDelayMs;
+  episodeCompletionDelayMs = Number.isFinite(Number(experimentConfig?.episodeCompletionDelayMs))
+    ? Math.max(0, Number(experimentConfig.episodeCompletionDelayMs))
+    : Math.max(0, Number(CONFIG?.episodeCompletionDelayMs) || episodeCompletionDelayMs);
+  inactivityTimeoutMs = Number.isFinite(Number(experimentConfig?.inactivityTimeoutMs))
+    ? Math.max(0, Number(experimentConfig.inactivityTimeoutMs))
+    : Math.max(0, Number(CONFIG?.inactivityTimeoutMs) || inactivityTimeoutMs);
 
   applyPhaseForEpisode(1);
   initializeExperimentLogging();
@@ -449,6 +457,7 @@ function startEpisode(){
     clearTimeout(agentMoveTimer);
     agentMoveTimer=null;
   }
+  clearInactivityTimer();
 
   const upcomingEpisodeNumber = (episodeController.episodeNumber || 0) + 1;
   const nextPhaseInfo = applyPhaseForEpisode(upcomingEpisodeNumber);
@@ -518,6 +527,7 @@ function startEpisode(){
     episodeNumber: episodeController.episodeNumber
   });
   setTurn('human');
+  startInactivityTimer();
   updateExperimenterPanel();
 }
 
@@ -530,11 +540,66 @@ function updateScores(){
 
 function setTurn(turn){
   currentTurn=turn;
-  document.getElementById("turn-indicator").textContent=turn==='human'?'Your move':'Agent move';
+  const indicator = document.getElementById("turn-indicator");
+  indicator.classList.toggle('episode-complete-indicator', turn === 'complete');
+  indicator.textContent=turn==='human'?'Your move':'Agent move';
+  if(turn === 'complete'){
+    indicator.textContent = 'Episode Complete';
+  }
+}
+
+function clearInactivityTimer(){
+  if(inactivityTimer!==null){
+    clearTimeout(inactivityTimer);
+    inactivityTimer=null;
+  }
+}
+
+function startInactivityTimer(){
+  clearInactivityTimer();
+  if(!Number.isFinite(inactivityTimeoutMs) || inactivityTimeoutMs <= 0){
+    return;
+  }
+  inactivityTimer = setTimeout(() => {
+    if(currentTurn !== 'human'){
+      return;
+    }
+    handleEpisodeTermination(['timeout'], {
+      terminationReason: 'timeout'
+    });
+  }, inactivityTimeoutMs);
+}
+
+function handleEpisodeTermination(terminationReasons = [], extra = {}){
+  experimentLogger.logEvent('episode_end', {
+    blockNumber: currentBlockNumber,
+    episodeNumber: episodeController.episodeNumber,
+    moveCount: episodeController?.totalSelections ?? episodeController?.participantSelections ?? null,
+    participantMoveCount: episodeController?.participantSelections ?? null,
+    rewardsRemaining: episodeController?.rewardsRemaining ?? null,
+    terminationReasons,
+    ...extra,
+    finalScores: { humanScore, agentScore }
+  });
+  logStateSnapshot('episode_end', {
+    blockNumber: currentBlockNumber,
+    episodeNumber: episodeController.episodeNumber,
+    ...extra
+  });
+  if(agentMoveTimer!==null){
+    clearTimeout(agentMoveTimer);
+    agentMoveTimer=null;
+  }
+  clearInactivityTimer();
+  setTurn('complete');
+  episodeTransitionTimer=setTimeout(()=>startEpisode(),episodeCompletionDelayMs);
 }
 
 function makeSelection(id,actor){
   if(currentTurn!==actor)return;
+  if(actor==='human'){
+    startInactivityTimer();
+  }
   const p=world.getPosition(id);
   if(episodeController && typeof episodeController.recordSelection === 'function'){
     episodeController.recordSelection();
@@ -679,25 +744,9 @@ function makeSelection(id,actor){
   });
 
   if(terminationDecision.shouldEnd){
-    experimentLogger.logEvent('episode_end', {
-      blockNumber: currentBlockNumber,
-      episodeNumber: episodeController.episodeNumber,
-      moveCount: episodeController?.totalSelections ?? episodeController?.participantSelections ?? null,
-      participantMoveCount: episodeController?.participantSelections ?? null,
-      rewardsRemaining: episodeController?.rewardsRemaining ?? null,
-      terminationReasons: terminationDecision.reasons,
-      finalScores: { humanScore, agentScore }
+    handleEpisodeTermination(terminationDecision.reasons, {
+      terminationReason: terminationDecision.reasons?.[0] || 'policy'
     });
-    logStateSnapshot('episode_end', {
-      blockNumber: currentBlockNumber,
-      episodeNumber: episodeController.episodeNumber
-    });
-    if(agentMoveTimer!==null){
-      clearTimeout(agentMoveTimer);
-      agentMoveTimer=null;
-    }
-    setTurn('human');
-    episodeTransitionTimer=setTimeout(()=>startEpisode(),episodePauseMs);
     return;
   }
   if(actor==='human'){
