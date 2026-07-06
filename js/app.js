@@ -224,12 +224,13 @@ async function initializeGame(){
 
   board.feedbackDurationMs = experimentConfig.feedbackDurationMs || board.feedbackDurationMs;
   agentDelayMs = experimentConfig.agentDelayMs || agentDelayMs;
-  episodeCompletionDelayMs = Number.isFinite(Number(experimentConfig?.episodeCompletionDelayMs))
-    ? Math.max(0, Number(experimentConfig.episodeCompletionDelayMs))
-    : Math.max(0, Number(CONFIG?.episodeCompletionDelayMs) || episodeCompletionDelayMs);
-  inactivityTimeoutMs = Number.isFinite(Number(experimentConfig?.inactivityTimeoutMs))
-    ? Math.max(0, Number(experimentConfig.inactivityTimeoutMs))
-    : Math.max(0, Number(CONFIG?.inactivityTimeoutMs) || inactivityTimeoutMs);
+  episodeCompletionDelayMs = Math.max(0, Number(CONFIG?.episodeCompletionDelayMs) || episodeCompletionDelayMs);
+  inactivityTimeoutMs = Math.max(0, Number(CONFIG?.inactivityTimeoutMs) || inactivityTimeoutMs);
+
+  console.debug('[Adaptive Foraging] Timing config', {
+    episodeCompletionDelayMs,
+    inactivityTimeoutMs
+  });
 
   applyPhaseForEpisode(1);
   initializeExperimentLogging();
