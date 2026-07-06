@@ -445,7 +445,7 @@ function countRewards(images, activeRule){
   return images.reduce((count,img)=>count + (r.evaluate({resolved:false,imageInstance:img}).reward ? 1 : 0),0);
 }
 
-function startEpisode(){
+function startEpisode(nextEpisodeNumber = null){
   if(episodeController===null){
     return;
   }
@@ -459,7 +459,9 @@ function startEpisode(){
   }
   clearInactivityTimer();
 
-  const upcomingEpisodeNumber = (episodeController.episodeNumber || 0) + 1;
+  const upcomingEpisodeNumber = Number.isFinite(Number(nextEpisodeNumber))
+    ? Math.max(1, Number(nextEpisodeNumber))
+    : (episodeController.episodeNumber || 0) + 1;
   const nextPhaseInfo = applyPhaseForEpisode(upcomingEpisodeNumber);
   const activeForUpcoming = currentRule || new Rule([]);
   currentEpisodeRewardCapacity = countRewards(imgs, activeForUpcoming);
@@ -592,7 +594,18 @@ function handleEpisodeTermination(terminationReasons = [], extra = {}){
   }
   clearInactivityTimer();
   setTurn('complete');
-  episodeTransitionTimer=setTimeout(()=>startEpisode(),episodeCompletionDelayMs);
+  const completedEpisodeNumber = episodeController?.episodeNumber ?? 0;
+  const nextEpisodeNumber = protocolEngine
+    ? protocolEngine.getNextEpisodeNumber(completedEpisodeNumber)
+    : completedEpisodeNumber + 1;
+
+  if(nextEpisodeNumber===null){
+    finalizeExperimentLogging('protocol_complete');
+    updateExperimenterPanel();
+    return;
+  }
+
+  episodeTransitionTimer=setTimeout(()=>startEpisode(nextEpisodeNumber),episodeCompletionDelayMs);
 }
 
 function makeSelection(id,actor){

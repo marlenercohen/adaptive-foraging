@@ -4,6 +4,7 @@ class ProtocolEngine {
     this.phases = this.protocol.phases;
     this.repeat = this.protocol.repeat !== false;
     this.repeatFromPhase = this.protocol.repeatFromPhase;
+    this.totalEpisodes = this.phases.reduce((sum, phase) => sum + phase.episodeCount, 0);
     this.introEpisodes = this.phases
       .slice(0, this.repeatFromPhase)
       .reduce((sum, phase) => sum + phase.episodeCount, 0);
@@ -114,6 +115,14 @@ class ProtocolEngine {
   episodesUntilNextPhase(episodeNumber) {
     const info = this.getPhaseForEpisode(episodeNumber);
     return Math.max(0, info.phase.episodeCount - info.phaseEpisode);
+  }
+
+  getNextEpisodeNumber(completedEpisodeNumber) {
+    const completed = Math.max(0, Number(completedEpisodeNumber) || 0);
+    if (this.repeat) {
+      return completed + 1;
+    }
+    return completed < this.totalEpisodes ? completed + 1 : null;
   }
 
   getExecutedProtocol() {
