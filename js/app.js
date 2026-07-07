@@ -20,6 +20,7 @@ const board=new Board("board",id=>makeSelection(id,'human'));
 let experimenterPanel=null;
 let currentTurn='human';
 let lastAgentSelectionId=null;
+let lastHumanSelectionId=null;
 let agentDelayMs=700;
 let episodeCompletionDelayMs=2000;
 let inactivityTimeoutMs=15000;
@@ -43,6 +44,7 @@ let phaseRuleInstancesByFile={};
 let stimulusLibrariesBySet={};
 let stimulusSetDescriptorsByName={};
 let currentEpisodeRewardCapacity=0;
+let currentRuleDefinesRewardExhaustion=true;
 let sessionEnded=false;
 
 const appRuntime = window.APP_RUNTIME || {};
@@ -408,9 +410,34 @@ function getAgentScoreForFeatures(features){
   },0);
 }
 
+function getBoardColumnCount(){
+  const boardElement = board?.el;
+  if(!boardElement || typeof window === 'undefined' || typeof window.getComputedStyle !== 'function'){
+    return 5;
+  }
+
+  const gridTemplateColumns = window.getComputedStyle(boardElement).gridTemplateColumns || '';
+  const compactColumns = gridTemplateColumns.trim();
+  if(!compactColumns){
+    return 5;
+  }
+
+  const repeatMatch = compactColumns.match(/^repeat\(\s*(\d+)/i);
+  if(repeatMatch){
+    const repeatCount = Number(repeatMatch[1]);
+    if(Number.isFinite(repeatCount) && repeatCount > 0){
+      return Math.floor(repeatCount);
+    }
+  }
+
+  const explicitColumns = compactColumns.split(/\s+/).filter(Boolean).length;
+  return explicitColumns > 0 ? explicitColumns : 5;
+}
+
 function buildPredictionRows(){
   if(!world || !experimenterPanel) return [];
   const activeRule = currentRule || new Rule([]);
+  const boardColumnCount = getBoardColumnCount();
   const unresolved = world.positions.filter(p=>!p.resolved);
   const rows = [...unresolved];
 
@@ -424,7 +451,12 @@ function buildPredictionRows(){
   return rows.map(position=>{
     const features = position.imageInstance?.features || {};
     const score = getAgentScoreForFeatures(features);
-    const reward = activeRule.evaluate(position).reward;
+    const reward = activeRule.evaluate(position, {
+      actor: 'human',
+      participantMoveCount: episodeController?.participantSelections ?? 0,
+      previousAgentPositionID: lastAgentSelectionId,
+      boardColumnCount
+    }).reward;
     return {
       id: position.positionID,
       icon: position.imageInstance?.label || '',
@@ -443,6 +475,11 @@ function updateExperimenterPanel(){
 
 function countRewards(images, activeRule){
   const r = activeRule || currentRule || new Rule([]);
+  if(typeof r.getInitialRewardCapacity === 'function'){
+    return r.getInitialRewardCapacity(images, {
+      maxParticipantSelections: episodeController?.maxParticipantSelections
+    });
+  }
   return images.reduce((count,img)=>count + (r.evaluate({resolved:false,imageInstance:img}).reward ? 1 : 0),0);
 }
 
@@ -465,7 +502,19 @@ function startEpisode(nextEpisodeNumber = null){
     : (episodeController.episodeNumber || 0) + 1;
   const nextPhaseInfo = applyPhaseForEpisode(upcomingEpisodeNumber);
   const activeForUpcoming = currentRule || new Rule([]);
+  currentRuleDefinesRewardExhaustion = typeof activeForUpcoming.isRewardExhaustionDefined === 'function'
+    ? activeForUpcoming.isRewardExhaustionDefined()
+    : true;
   currentEpisodeRewardCapacity = countRewards(imgs, activeForUpcoming);
+
+  if(currentEpisodeTerminationPolicy?.endWhenRewardsExhausted && !currentRuleDefinesRewardExhaustion){
+    console.warn('[Adaptive Foraging] Ignoring endWhenRewardsExhausted for this episode because the active rule does not define fixed reward exhaustion.', {
+      episodeNumber: upcomingEpisodeNumber,
+      phaseName: nextPhaseInfo?.phase?.name || null,
+      ruleFile: nextPhaseInfo?.phase?.ruleFile || null
+    });
+  }
+
   episodeController.resetEpisode(currentEpisodeRewardCapacity);
   world.startEpisode(imgs);
   if(agent && typeof agent.onEpisodeStart === 'function'){
@@ -474,6 +523,7 @@ function startEpisode(nextEpisodeNumber = null){
   humanScore=0;
   agentScore=0;
   lastAgentSelectionId=null;
+  lastHumanSelectionId=null;
   board.draw(world);
   updateScores();
   currentRule = currentRule || activeForUpcoming;
@@ -614,11 +664,22 @@ function makeSelection(id,actor){
   if(actor==='human'){
     startInactivityTimer();
   }
+  const boardColumnCount = getBoardColumnCount();
+  const previousReferencePositionID = actor === 'agent'
+    ? lastHumanSelectionId
+    : lastAgentSelectionId;
   const p=world.getPosition(id);
   if(episodeController && typeof episodeController.recordSelection === 'function'){
     episodeController.recordSelection();
   }
-  const r=(currentRule || new Rule([])).evaluate(p);
+  const r=(currentRule || new Rule([])).evaluate(p, {
+    actor,
+    participantMoveCount: episodeController?.participantSelections ?? 0,
+    previousReferencePositionID,
+    previousAgentPositionID: lastAgentSelectionId,
+    previousHumanPositionID: lastHumanSelectionId,
+    boardColumnCount
+  });
   const reward=r.reward;
   const repeat=r.repeat;
   let rewardAllocation = null;
@@ -723,6 +784,8 @@ function makeSelection(id,actor){
   logger.log("selection",{actor,positionID:id,imageID:p.imageInstance.id,reward:Boolean(reward),repeat,humanScore,agentScore,episodeNumber:episodeController.episodeNumber,participantSelectionsRemaining:Math.max(0,episodeController.maxParticipantSelections)});
   if(actor === 'agent'){
     lastAgentSelectionId = id;
+  } else if(actor === 'human'){
+    lastHumanSelectionId = id;
   }
   if(experimenterPanel){
     experimenterPanel.updateAgent({
@@ -754,7 +817,8 @@ function makeSelection(id,actor){
     endWhenRewardsExhausted: true
   })).evaluate({
     moveCount: episodeController?.totalSelections ?? episodeController?.participantSelections ?? 0,
-    rewardsRemaining: episodeController?.rewardsRemaining ?? 0
+    rewardsRemaining: episodeController?.rewardsRemaining ?? 0,
+    rewardExhaustionDefined: currentRuleDefinesRewardExhaustion
   });
 
   if(terminationDecision.shouldEnd){

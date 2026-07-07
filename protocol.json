@@ -24,6 +24,29 @@
       }
     },
     {
+      "name": "Distance from Agent",
+      "episodeCount": 1,
+      "stimulusSet": "emoji",
+      "stimulusPopulation": [0,1,2,3,4,5,6,7,8,9,0,1,2,3,4,5,6,7,8,9],
+      "stimuliPerEpisode": 20,
+      "ruleFile": "rules_distance_from_agent.json",
+      "agent": {
+        "type": "feature-learning"
+      },
+      "workingMemory": {
+        "decayTimeConstant": 5,
+        "memoryPenaltyWeight": 1.0
+      },
+      "rewardStructure": {
+        "type": "individual",
+        "rewardPerHit": 1
+      },
+      "episodeTerminationPolicy": {
+        "type": "standard",
+        "maxMoves": 20,
+        "endWhenRewardsExhausted": true
+      }
+    },   {
       "name": "Animals Phase",
       "episodeCount": 1,
       "stimulusSet": "emoji",
@@ -54,6 +77,30 @@
       "stimulusPopulation": [0,1,2,3,4,5,6,7,8,9,0,1,2,3,4,5,6,7,8,9],
       "stimuliPerEpisode": 20,
       "ruleFile": "rules_objects.json",
+      "agent": {
+        "type": "feature-learning"
+      },
+      "workingMemory": {
+        "decayTimeConstant": 5,
+        "memoryPenaltyWeight": 1.0
+      },
+      "rewardStructure": {
+        "type": "individual",
+        "rewardPerHit": 1
+      },
+      "episodeTerminationPolicy": {
+        "type": "standard",
+        "maxMoves": 10,
+        "endWhenRewardsExhausted": true
+      }
+    },
+    {
+      "name": "Distance from Agent",
+      "episodeCount": 1,
+      "stimulusSet": "emoji",
+      "stimulusPopulation": [0,1,2,3,4,5,6,7,8,9,0,1,2,3,4,5,6,7,8,9],
+      "stimuliPerEpisode": 20,
+      "ruleFile": "rules_distance_from_agent.json",
       "agent": {
         "type": "feature-learning"
       },

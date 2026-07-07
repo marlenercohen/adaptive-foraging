@@ -26,9 +26,9 @@ class StandardEpisodeTerminationPolicy extends BaseEpisodeTerminationPolicy {
       : (legacyRewardsFlag !== undefined ? Boolean(legacyRewardsFlag) : true);
   }
 
-  evaluate({ moveCount = 0, rewardsRemaining = 0 } = {}) {
+  evaluate({ moveCount = 0, rewardsRemaining = 0, rewardExhaustionDefined = true } = {}) {
     const reasons = [];
-    if (this.endWhenRewardsExhausted && rewardsRemaining <= 0) {
+    if (this.endWhenRewardsExhausted && rewardExhaustionDefined && rewardsRemaining <= 0) {
       reasons.push('rewards_exhausted');
     }
     if (moveCount >= this.maxMoves) {

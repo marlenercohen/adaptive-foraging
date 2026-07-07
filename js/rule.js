@@ -4,13 +4,45 @@ class Rule{
    this.rules = rules;
  }
 
-  evaluate(pos){
+  evaluate(pos, context = {}){
    if(pos.resolved) return {reward:false,repeat:true};
 
    const metadata = pos.imageInstance?.features || {};
-   const matched = this.rules.some(rule => rule.evaluate(metadata));
+   const positionContext = {
+     ...context,
+     positionID: pos.positionID
+   };
+   const matched = this.rules.some(rule => rule.evaluate(metadata, positionContext));
    return {reward:matched,repeat:false};
  }
+
+  isRewardExhaustionDefined(){
+   return this.rules.every(rule => {
+     if(typeof rule?.isRewardExhaustionDefined === 'function'){
+       return rule.isRewardExhaustionDefined();
+     }
+     return rule?.rewardExhaustionDefined !== false;
+   });
+  }
+
+  getInitialRewardCapacity(images = [], options = {}){
+   if(!Array.isArray(images) || images.length === 0){
+     return 0;
+   }
+
+   if(!this.isRewardExhaustionDefined()){
+     return null;
+   }
+
+   return images.reduce((count, img) => {
+     const result = this.evaluate({
+       resolved: false,
+       positionID: null,
+       imageInstance: img
+     }, options?.context || {});
+     return count + (result.reward ? 1 : 0);
+   }, 0);
+  }
 }
 
 class FeatureRule {
@@ -18,6 +50,8 @@ class FeatureRule {
    this.feature=feature;
    this.operator=operator;
    this.value=value;
+   this.requiresDynamicContext = false;
+   this.rewardExhaustionDefined = true;
  }
 
  evaluate(features){
@@ -42,20 +76,70 @@ class FeatureRule {
 class AndRule {
  constructor(rules = []) {
    this.rules = rules;
+   this.requiresDynamicContext = this.rules.some(rule => Boolean(rule?.requiresDynamicContext));
+   this.rewardExhaustionDefined = this.rules.every(rule => {
+     if(typeof rule?.isRewardExhaustionDefined === 'function'){
+       return rule.isRewardExhaustionDefined();
+     }
+     return rule?.rewardExhaustionDefined !== false;
+   });
  }
 
- evaluate(features){
-   return this.rules.every(rule => rule.evaluate(features));
+ evaluate(features, context = {}){
+   return this.rules.every(rule => rule.evaluate(features, context));
  }
 }
 
 class OrRule {
  constructor(rules = []) {
    this.rules = rules;
+   this.requiresDynamicContext = this.rules.some(rule => Boolean(rule?.requiresDynamicContext));
+   this.rewardExhaustionDefined = this.rules.every(rule => {
+     if(typeof rule?.isRewardExhaustionDefined === 'function'){
+       return rule.isRewardExhaustionDefined();
+     }
+     return rule?.rewardExhaustionDefined !== false;
+   });
  }
 
- evaluate(features){
-   return this.rules.some(rule => rule.evaluate(features));
+ evaluate(features, context = {}){
+   return this.rules.some(rule => rule.evaluate(features, context));
+ }
+}
+
+class DistanceFromAgentRule {
+ constructor(minimumDistance = 0){
+   const numericDistance = Number(minimumDistance);
+   this.minimumDistance = Number.isFinite(numericDistance)
+     ? Math.max(0, Math.floor(numericDistance))
+     : 0;
+   this.requiresDynamicContext = true;
+   this.rewardExhaustionDefined = false;
+ }
+
+ evaluate(_features, context = {}){
+   const selectedPositionID = Number(context?.positionID);
+   const previousReferencePositionID = Number(
+     context?.previousReferencePositionID
+     ?? (context?.actor === 'agent' ? context?.previousHumanPositionID : context?.previousAgentPositionID)
+   );
+   const boardColumnCount = Number(context?.boardColumnCount);
+
+   if(!Number.isInteger(selectedPositionID) || !Number.isInteger(previousReferencePositionID)){
+     return false;
+   }
+   if(!Number.isFinite(boardColumnCount) || boardColumnCount <= 0){
+     return false;
+   }
+
+   const columns = Math.max(1, Math.floor(boardColumnCount));
+   const humanRow = Math.floor(selectedPositionID / columns);
+   const humanCol = selectedPositionID % columns;
+  const agentRow = Math.floor(previousReferencePositionID / columns);
+  const agentCol = previousReferencePositionID % columns;
+   const manhattanDistance = Math.abs(humanRow - agentRow) + Math.abs(humanCol - agentCol);
+
+   return manhattanDistance >= this.minimumDistance;
  }
 }
 
@@ -67,6 +151,8 @@ function createRuleFromDefinition(definition){
   switch(definition.type){
     case 'feature':
       return new FeatureRule(definition.feature, definition.operator, definition.value);
+    case 'distance-from-agent':
+      return new DistanceFromAgentRule(definition.minimumDistance);
     case 'and':
       return new AndRule((definition.rules || []).map(createRuleFromDefinition).filter(Boolean));
     case 'or':

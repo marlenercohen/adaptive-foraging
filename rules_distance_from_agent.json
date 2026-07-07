@@ -1,0 +1,6 @@
+[
+  {
+    "type": "distance-from-agent",
+    "minimumDistance": 3
+  }
+]
