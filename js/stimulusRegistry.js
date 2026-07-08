@@ -1,11 +1,13 @@
 class StimulusRegistry {
   constructor(entries = null) {
-    this.entries = entries || {
-      emoji: {
-        manifestFile: 'stimuli/emoji/manifest.json'
-      }
-    };
+    this.entries = entries;
     this.supportedFeatureTypes = new Set(['boolean', 'categorical', 'continuous']);
+    this.registryIndexPath = 'stimuli/index.json';
+    this.registryLoadPromise = null;
+
+    if (!this.entries) {
+      this.registryLoadPromise = this.loadRegistryIndexOrThrow();
+    }
   }
 
   getEntry(setName) {
@@ -17,11 +19,50 @@ class StimulusRegistry {
       throw new Error('Stimulus set name must be a non-empty string.');
     }
     if (!entry) {
-      throw new Error(`Stimulus set "${setName}" is not registered.`);
+      throw new Error(`Stimulus set "${setName}" is not listed in stimuli/index.json.`);
     }
     if (!entry.manifestFile || typeof entry.manifestFile !== 'string') {
       throw new Error(`Stimulus set "${setName}" is missing required field "manifestFile".`);
     }
+  }
+
+  async loadRegistryIndexOrThrow() {
+    let response;
+    try {
+      response = await fetch(this.registryIndexPath);
+    } catch (error) {
+      throw new Error(`Failed to load stimulus registry from ${this.registryIndexPath}: ${error?.message || String(error)}`);
+    }
+
+    if (!response.ok) {
+      throw new Error(`Stimulus registry could not be loaded from ${this.registryIndexPath} (HTTP ${response.status}).`);
+    }
+
+    let registry;
+    try {
+      registry = await response.json();
+    } catch (error) {
+      throw new Error(`Stimulus registry file ${this.registryIndexPath} is not valid JSON: ${error?.message || String(error)}`);
+    }
+
+    if (!registry || typeof registry !== 'object' || Array.isArray(registry)) {
+      throw new Error(`Stimulus registry file ${this.registryIndexPath} must contain a JSON object keyed by stimulus set name.`);
+    }
+
+    this.entries = registry;
+    return registry;
+  }
+
+  async ensureEntriesLoaded() {
+    if (this.entries) {
+      return this.entries;
+    }
+
+    if (!this.registryLoadPromise) {
+      this.registryLoadPromise = this.loadRegistryIndexOrThrow();
+    }
+
+    return await this.registryLoadPromise;
   }
 
   validateFeatureSchema(setName, features) {
@@ -100,6 +141,21 @@ class StimulusRegistry {
     }
   }
 
+  resolvePathFromManifest(manifestFile, relativePath) {
+    // Absolute URLs and absolute project paths are passed through unchanged.
+    if (typeof relativePath !== 'string' || relativePath.startsWith('/') || /^[a-zA-Z]+:\/\//.test(relativePath)) {
+      return relativePath;
+    }
+
+    const lastSlashIndex = manifestFile.lastIndexOf('/');
+    if (lastSlashIndex === -1) {
+      return relativePath;
+    }
+
+    const manifestDirectory = manifestFile.slice(0, lastSlashIndex + 1);
+    return `${manifestDirectory}${relativePath}`;
+  }
+
   validateMetadataRows(setName, rows) {
     if (!Array.isArray(rows)) {
       throw new Error(`Stimulus metadata for set "${setName}" must be an array.`);
@@ -122,6 +178,8 @@ class StimulusRegistry {
   }
 
   async resolve(setName) {
+    await this.ensureEntriesLoaded();
+
     const entry = this.getEntry(setName);
     this.validateEntry(setName, entry);
 
@@ -133,6 +191,8 @@ class StimulusRegistry {
       version: '1.0',
       ...manifest
     };
+    definition.metadataFile = this.resolvePathFromManifest(entry.manifestFile, definition.metadataFile);
+    definition.imageDirectory = this.resolvePathFromManifest(entry.manifestFile, definition.imageDirectory);
     this.validateStimulusSetDefinition(setName, definition);
 
     const data = await this.loadJsonOrThrow(definition.metadataFile, setName, 'metadata');

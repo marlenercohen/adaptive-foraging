@@ -1,0 +1,8 @@
+[
+  {
+    "type": "feature",
+    "feature": "lowlevel_mat1",
+    "operator": ">",
+    "value": 55
+  }
+]

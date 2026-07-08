@@ -3,8 +3,8 @@
   "displayName": "Emoji",
   "description": "Unicode emoji stimulus set",
   "version": "1.0",
-  "imageDirectory": "images/",
-  "metadataFile": "stimuli/emoji/metadata.json",
+  "imageDirectory": "images",
+  "metadataFile": "metadata.json",
   "features": [
     {
       "name": "animal",

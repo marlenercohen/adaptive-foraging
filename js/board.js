@@ -7,7 +7,27 @@ class Board{
     const b=document.createElement("button");
     b.className="tile";
     b.dataset.pos=p.positionID;
-    b.textContent=p.imageInstance.label;
+    const label=p.imageInstance?.label || '';
+    const imageSrc=p.imageInstance?.imageSrc || '';
+    if(imageSrc){
+      const img=document.createElement('img');
+      img.className='tile-image';
+      img.src=imageSrc;
+      img.alt=label;
+      img.loading='eager';
+      img.decoding='async';
+      img.onerror=()=>{
+        b.classList.add('tile-text-fallback');
+        b.textContent=label;
+      };
+      b.appendChild(img);
+      if(label){
+        b.setAttribute('aria-label',label);
+      }
+    }else{
+      b.classList.add('tile-text-fallback');
+      b.textContent=label;
+    }
     b.onclick=()=>this.cb(p.positionID);
     this.el.appendChild(b);
   });

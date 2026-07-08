@@ -108,6 +108,7 @@ async function preloadProtocolAssets(engine){
 function buildStimulusImagesForPhase(phase){
   stimulusLibrary = stimulusLibrariesBySet[phase.stimulusSet] || null;
   availableStimuli = stimulusLibrary ? stimulusLibrary.getAll() : [];
+  const descriptor = stimulusSetDescriptorsByName[phase.stimulusSet] || null;
 
   const count = phase?.stimuliPerEpisode || 20;
   const samplingPopulation = buildStimulusPopulationForPhase(phase, availableStimuli);
@@ -119,6 +120,7 @@ function buildStimulusImagesForPhase(phase){
   }
   imgs = sampleStimulusPopulation(samplingPopulation, count).map(stimulus => ({
     ...stimulus,
+    imageSrc: resolveStimulusImageSource(stimulus, descriptor),
     label: stimulus?.label || stimulus?.display || ''
   }));
 
@@ -129,6 +131,47 @@ function buildStimulusImagesForPhase(phase){
     episodeController = new EpisodeController(maxSelections);
   }
   episodeController.maxParticipantSelections = maxSelections;
+}
+
+function toDirectoryPath(filePath){
+  if(typeof filePath !== 'string') return '';
+  const slashIndex = filePath.lastIndexOf('/');
+  return slashIndex === -1 ? '' : filePath.slice(0, slashIndex + 1);
+}
+
+function joinPath(basePath, relativePath){
+  const base = String(basePath || '');
+  const relative = String(relativePath || '');
+  if(!base) return relative;
+  if(!relative) return base;
+  if(base.endsWith('/')) return `${base}${relative.replace(/^\/+/, '')}`;
+  return `${base}/${relative.replace(/^\/+/, '')}`;
+}
+
+function resolveStimulusPath(pathValue, basePath){
+  if(typeof pathValue !== 'string' || pathValue.length === 0) return '';
+  if(pathValue.startsWith('/') || /^[a-zA-Z]+:\/\//.test(pathValue)) {
+    return pathValue;
+  }
+  if(pathValue.startsWith('stimuli/')) {
+    return pathValue;
+  }
+  return joinPath(basePath, pathValue);
+}
+
+function resolveStimulusImageSource(stimulus, descriptor){
+  const rawImage = typeof stimulus?.image === 'string' ? stimulus.image.trim() : '';
+  if(!rawImage) return '';
+
+  const metadataDirectory = toDirectoryPath(descriptor?.metadataFile || '');
+  const imageDirectory = descriptor?.imageDirectory || '';
+
+  if(rawImage.includes('/')) {
+    return resolveStimulusPath(rawImage, metadataDirectory);
+  }
+
+  const imageBase = resolveStimulusPath(imageDirectory, metadataDirectory) || metadataDirectory;
+  return joinPath(imageBase, rawImage);
 }
 
 function buildStimulusPopulationForPhase(phase, allStimuli){

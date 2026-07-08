@@ -11,6 +11,8 @@ body{font-family:Arial;margin:30px}
 
 #board{display:grid;grid-template-columns:repeat(5,90px);gap:10px}
 .tile{position:relative;width:90px;height:90px;font-size:40px;border-radius:8px;cursor:pointer;transition:box-shadow .2s ease,transform .2s ease}
+.tile-image{width:100%;height:100%;object-fit:contain;display:block}
+.tile.tile-text-fallback{display:flex;align-items:center;justify-content:center}
 .tile.selected{box-shadow:0 0 0 4px #facc15,0 0 16px 6px rgba(250,204,21,0.75);transform:scale(1.03)}
 .overlay{position:absolute;left:50%;top:50%;transform:translate(-50%,-50%);
 font-size:72px;font-weight:900;line-height:1;pointer-events:none;

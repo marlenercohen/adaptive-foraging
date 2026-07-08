@@ -9,7 +9,7 @@
       "stimulusSet": "emoji",
       "stimulusPopulation": [0,1,2,3,4,5,6,7,8,9,0,1,2,3,4,5,6,7,8,9],
       "stimuliPerEpisode": 20,
-      "ruleFile": "rules_animals.json",
+      "ruleFile": "rules_objects.json",
       "agent": {
         "type": "random"
       },
@@ -23,9 +23,53 @@
         "endWhenRewardsExhausted": true
       }
     },
+     {
+      "name": "New images",
+      "episodeCount": 2,
+      "stimulusSet": "teststim",
+      "stimulusPopulation": [1,2,3,4,5,6,7,8,9,10,1,2,3,4,5,6,7,8,9,10],
+      "stimuliPerEpisode": 20,
+      "ruleFile": "rules_contrast.json",
+      "agent": {
+        "type": "random"
+      },
+      "rewardStructure": {
+        "type": "individual",
+        "rewardPerHit": 1
+      },
+      "episodeTerminationPolicy": {
+        "type": "standard",
+        "maxMoves": 10,
+        "endWhenRewardsExhausted": true
+      }
+    },
+        {
+      "name": "Objects Phase",
+      "episodeCount": 2,
+      "stimulusSet": "emoji",
+      "stimulusPopulation": [0,1,2,3,4,5,6,7,8,9,0,1,2,3,4,5,6,7,8,9],
+      "stimuliPerEpisode": 20,
+      "ruleFile": "rules_objects.json",
+      "agent": {
+        "type": "feature-learning"
+      },
+      "workingMemory": {
+        "decayTimeConstant": 5,
+        "memoryPenaltyWeight": 1.0
+      },
+      "rewardStructure": {
+        "type": "individual",
+        "rewardPerHit": 1
+      },
+      "episodeTerminationPolicy": {
+        "type": "standard",
+        "maxMoves": 10,
+        "endWhenRewardsExhausted": true
+      }
+    },
     {
       "name": "Distance from Agent",
-      "episodeCount": 1,
+      "episodeCount": 3,
       "stimulusSet": "emoji",
       "stimulusPopulation": [0,1,2,3,4,5,6,7,8,9,0,1,2,3,4,5,6,7,8,9],
       "stimuliPerEpisode": 20,
@@ -46,30 +90,8 @@
         "maxMoves": 20,
         "endWhenRewardsExhausted": true
       }
-    },   {
-      "name": "Animals Phase",
-      "episodeCount": 1,
-      "stimulusSet": "emoji",
-      "stimulusPopulation": [0,1,2,3,4,5,6,7,8,9,0,1,2,3,4,5,6,7,8,9],
-      "stimuliPerEpisode": 20,
-      "ruleFile": "rules_animals.json",
-      "agent": {
-        "type": "feature-learning"
-      },
-      "workingMemory": {
-        "decayTimeConstant": 5,
-        "memoryPenaltyWeight": 1.0
-      },
-      "rewardStructure": {
-        "type": "individual",
-        "rewardPerHit": 1
-      },
-      "episodeTerminationPolicy": {
-        "type": "standard",
-        "maxMoves": 10,
-        "endWhenRewardsExhausted": true
-      }
-    },
+    },   
+
     {
       "name": "Objects Phase",
       "episodeCount": 1,

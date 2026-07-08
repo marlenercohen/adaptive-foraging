@@ -1,0 +1,8 @@
+{
+  "emoji": {
+    "manifestFile": "stimuli/emoji/manifest.json"
+  },
+  "teststim": {
+    "manifestFile": "stimuli/teststim/manifest.json"
+  }
+}
