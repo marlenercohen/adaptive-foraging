@@ -3,7 +3,7 @@
 
   "loops": [
   {
-    "name": "Category 3",
+    "name": "Food",
     "startPhase": 0,
     "endPhase": 3,
     "repeatCount": 2
