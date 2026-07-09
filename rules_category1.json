@@ -1,0 +1,8 @@
+[
+  {
+    "type": "feature",
+    "feature": "metadatamtx1",
+    "operator": "==",
+    "value": 3
+  }
+]

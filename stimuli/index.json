@@ -4,5 +4,8 @@
   },
   "teststim": {
     "manifestFile": "stimuli/teststim/manifest.json"
+  },
+  "catcontraststimuli": {
+    "manifestFile": "stimuli/catcontraststimuli/manifest.json"
   }
 }

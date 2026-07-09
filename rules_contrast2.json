@@ -1,0 +1,8 @@
+[
+  {
+    "type": "feature",
+    "feature": "metadatamtx2",
+    "operator": ">",
+    "value": 50
+  }
+]

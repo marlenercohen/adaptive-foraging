@@ -3,60 +3,16 @@
   "repeat": false,
   "repeatFromPhase": 1,
   "phases": [
-    {
-      "name": "Practice",
-      "episodeCount": 1,
-      "stimulusSet": "emoji",
-      "stimulusPopulation": [0,1,2,3,4,5,6,7,8,9,0,1,2,3,4,5,6,7,8,9],
-      "stimuliPerEpisode": 20,
-      "ruleFile": "rules_objects.json",
-      "agent": {
-        "type": "random"
-      },
-      "rewardStructure": {
-        "type": "individual",
-        "rewardPerHit": 1
-      },
-      "episodeTerminationPolicy": {
-        "type": "standard",
-        "maxMoves": 10,
-        "endWhenRewardsExhausted": true
-      }
-    },
+    
      {
-      "name": "New images",
-      "episodeCount": 2,
-      "stimulusSet": "teststim",
-      "stimulusPopulation": [1,2,3,4,5,6,7,8,9,10,1,2,3,4,5,6,7,8,9,10],
+      "name": "Category 3, type 1",
+      "episodeCount": 1,
+      "stimulusSet": "catcontraststimuli",
+      "stimulusPopulation": [1328,6480,1191,394,3340,5912,4645,372,6532,844,4990,3886,4053,5531,2103,2948,5156,2928,3524,3763],
       "stimuliPerEpisode": 20,
-      "ruleFile": "rules_contrast.json",
+      "ruleFile": "rules_category1.json",
       "agent": {
         "type": "feature-learning"
-      },
-      "rewardStructure": {
-        "type": "individual",
-        "rewardPerHit": 1
-      },
-      "episodeTerminationPolicy": {
-        "type": "standard",
-        "maxMoves": 10,
-        "endWhenRewardsExhausted": true
-      }
-    },
-
-    {
-      "name": "Distance from Agent",
-      "episodeCount": 3,
-      "stimulusSet": "emoji",
-      "stimulusPopulation": [0,1,2,3,4,5,6,7,8,9,0,1,2,3,4,5,6,7,8,9],
-      "stimuliPerEpisode": 20,
-      "ruleFile": "rules_distance_from_agent.json",
-      "agent": {
-        "type": "feature-learning"
-      },
-      "workingMemory": {
-        "decayTimeConstant": 5,
-        "memoryPenaltyWeight": 1.0
       },
       "rewardStructure": {
         "type": "individual",
@@ -67,21 +23,17 @@
         "maxMoves": 20,
         "endWhenRewardsExhausted": true
       }
-    },   
+    },
 
-    {
-      "name": "Objects Phase",
+         {
+      "name": "Category 3, type 2",
       "episodeCount": 1,
-      "stimulusSet": "emoji",
-      "stimulusPopulation": [0,1,2,3,4,5,6,7,8,9,0,1,2,3,4,5,6,7,8,9],
+      "stimulusSet": "catcontraststimuli",
+      "stimulusPopulation": [3933,233,485,3385,3729,3801,1314,2020,93,6539,3372,3835,617,398,4405,3139,5826,835,894,3088],
       "stimuliPerEpisode": 20,
-      "ruleFile": "rules_objects.json",
+      "ruleFile": "rules_category1.json",
       "agent": {
         "type": "feature-learning"
-      },
-      "workingMemory": {
-        "decayTimeConstant": 5,
-        "memoryPenaltyWeight": 1.0
       },
       "rewardStructure": {
         "type": "individual",
@@ -89,23 +41,20 @@
       },
       "episodeTerminationPolicy": {
         "type": "standard",
-        "maxMoves": 10,
+        "maxMoves": 20,
         "endWhenRewardsExhausted": true
       }
     },
-    {
-      "name": "Distance from Agent",
+
+     {
+      "name": "Category 3, type 3",
       "episodeCount": 1,
-      "stimulusSet": "emoji",
-      "stimulusPopulation": [0,1,2,3,4,5,6,7,8,9,0,1,2,3,4,5,6,7,8,9],
+      "stimulusSet": "catcontraststimuli",
+      "stimulusPopulation": [1328,6480,1191,394,3340,5912,4645,372,6532,844,3372,3835,617,398,4405,3139,5826,835,894,3088],
       "stimuliPerEpisode": 20,
-      "ruleFile": "rules_distance_from_agent.json",
+      "ruleFile": "rules_category1.json",
       "agent": {
         "type": "feature-learning"
-      },
-      "workingMemory": {
-        "decayTimeConstant": 5,
-        "memoryPenaltyWeight": 1.0
       },
       "rewardStructure": {
         "type": "individual",
@@ -113,9 +62,30 @@
       },
       "episodeTerminationPolicy": {
         "type": "standard",
-        "maxMoves": 10,
+        "maxMoves": 20,
+        "endWhenRewardsExhausted": true
+      }
+    },
+
+         {
+      "name": "Category 3, type 4",
+      "episodeCount": 1,
+      "stimulusSet": "catcontraststimuli",
+      "stimulusPopulation": [3933,233,485,3385,3729,3801,1314,2020,93,6539,4990,3886,4053,5531,2103,2948,5156,2928,3524,3763],
+      "stimuliPerEpisode": 20,
+      "ruleFile": "rules_category1.json",
+      "agent": {
+        "type": "feature-learning"
+      },
+      "rewardStructure": {
+        "type": "individual",
+        "rewardPerHit": 1
+      },
+      "episodeTerminationPolicy": {
+        "type": "standard",
+        "maxMoves": 20,
         "endWhenRewardsExhausted": true
       }
     }
-  ]
+ ]
 }
