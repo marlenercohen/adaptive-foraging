@@ -50,6 +50,25 @@ let sessionEnded=false;
 const appRuntime = window.APP_RUNTIME || {};
 const platformBridge = new window.PlatformBridge(appRuntime);
 window.platformBridge = platformBridge;
+if (new URLSearchParams(window.location.search).get('gorillaTest') === '1') {
+  const testButton = document.createElement('button');
+  testButton.type = 'button';
+  testButton.textContent = 'Test Gorilla Finish';
+  testButton.style.cssText = [
+    'position:fixed',
+    'top:16px',
+    'right:16px',
+    'z-index:10000',
+    'padding:12px 16px',
+    'font-size:16px',
+    'font-weight:700',
+    'cursor:pointer'
+  ].join(';');
+  testButton.addEventListener('click', () => {
+    platformBridge.finishGorilla();
+  });
+  document.body.appendChild(testButton);
+}
 const isDebugMode = appRuntime.mode === 'debug';
 const appFeatures = {
   experimenterPanel: isDebugMode && appRuntime.features?.experimenterPanel !== false,
