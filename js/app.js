@@ -427,6 +427,16 @@ function finalizeExperimentLogging(reason){
     }
   });
   window.__lastExperimentLog = experimentLogger.getSessionData();
+
+  // Tell Gorilla (if we're running inside Gorilla) that the experiment is finished.
+if (window.top !== window) {
+    window.top.postMessage(
+        {
+            action: 'finished'
+        },
+        '*'
+    );
+}
 }
 
 function getExperimenterState(){
