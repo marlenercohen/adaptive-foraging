@@ -1,5 +1,3 @@
-console.log("PlatformBridge executed", window.location.href);
-
 class PlatformBridge {
   constructor(runtime = {}) {
     this.runtime = runtime || {};
