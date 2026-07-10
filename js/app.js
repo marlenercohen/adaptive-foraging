@@ -48,6 +48,8 @@ let currentRuleDefinesRewardExhaustion=true;
 let sessionEnded=false;
 
 const appRuntime = window.APP_RUNTIME || {};
+const platformBridge = new window.PlatformBridge(appRuntime);
+window.platformBridge = platformBridge;
 const isDebugMode = appRuntime.mode === 'debug';
 const appFeatures = {
   experimenterPanel: isDebugMode && appRuntime.features?.experimenterPanel !== false,
@@ -352,7 +354,8 @@ function initializeExperimentLogging(){
     randomSeeds: experimentConfig?.randomSeeds ?? {
       source: 'Math.random',
       deterministicSeed: null
-    }
+    },
+    platform: platformBridge.getContext()
   };
   experimentLogger.beginSession(metadata);
 }
@@ -406,7 +409,7 @@ function logStateSnapshot(reason, extra = {}){
   experimentLogger.recordSnapshot(buildReplayState(), { reason, ...extra });
 }
 
-function finalizeExperimentLogging(reason){
+async function finalizeExperimentLogging(reason){
   if(sessionEnded) return;
   sessionEnded = true;
   if(currentBlockNumber !== null){
@@ -423,20 +426,75 @@ function finalizeExperimentLogging(reason){
     completedEpisodes: episodeController?.episodeNumber ?? 0,
     finalScores: {
       humanScore,
-      agentScore
+      agentScore,
+      humanTotalScore,
+      agentTotalScore
     }
   });
-  window.__lastExperimentLog = experimentLogger.getSessionData();
 
-  // Tell Gorilla (if we're running inside Gorilla) that the experiment is finished.
-if (window.top !== window) {
-    window.top.postMessage(
-        {
-            action: 'finished'
-        },
-        '*'
-    );
+  const sessionData = experimentLogger.getSessionData();
+  window.__lastExperimentLog = sessionData;
+
+  if(reason !== 'protocol_complete') return;
+  await uploadCompletedSession(sessionData, reason);
 }
+
+async function uploadCompletedSession(sessionData, reason){
+  const indicator = document.getElementById('turn-indicator');
+  if(indicator){
+    indicator.textContent = 'Saving responses…';
+  }
+
+  try {
+    const uploadResult = await platformBridge.uploadSession(sessionData);
+    platformBridge.sendMetric({
+      session_id: platformBridge.sessionId,
+      upload_succeeded: true,
+      upload_object_key: uploadResult.objectKey || '',
+      upload_bytes: uploadResult.bytes || 0,
+      completed_episodes: episodeController?.episodeNumber ?? 0,
+      human_total_score: humanTotalScore,
+      agent_total_score: agentTotalScore,
+      completion_reason: reason,
+      upload_error: ''
+    });
+    platformBridge.finishGorilla();
+  } catch (error) {
+    console.error('[Adaptive Foraging] Session upload failed.', error);
+    platformBridge.sendMetric({
+      session_id: platformBridge.sessionId,
+      upload_succeeded: false,
+      upload_object_key: '',
+      upload_bytes: 0,
+      completed_episodes: episodeController?.episodeNumber ?? 0,
+      human_total_score: humanTotalScore,
+      agent_total_score: agentTotalScore,
+      completion_reason: reason,
+      upload_error: error?.message || String(error)
+    });
+    showUploadFailure(error, sessionData, reason);
+  }
+}
+
+function showUploadFailure(error, sessionData, reason){
+  let panel = document.getElementById('upload-failure');
+  if(!panel){
+    panel = document.createElement('div');
+    panel.id = 'upload-failure';
+    panel.style.cssText = 'position:fixed;inset:0;z-index:10000;background:white;display:flex;align-items:center;justify-content:center;padding:32px;font-family:sans-serif;';
+    document.body.appendChild(panel);
+  }
+  panel.innerHTML = `
+    <div style="max-width:640px;text-align:center;">
+      <h2>We could not save your responses</h2>
+      <p>Please keep this window open and try again. Your completed session is still available in this browser.</p>
+      <p style="font-size:0.9em;">${String(error?.message || error || 'Unknown upload error')}</p>
+      <button id="retry-session-upload" type="button" style="font-size:1rem;padding:10px 18px;">Try again</button>
+    </div>`;
+  document.getElementById('retry-session-upload')?.addEventListener('click', async () => {
+    panel.remove();
+    await uploadCompletedSession(sessionData, reason);
+  }, { once: true });
 }
 
 function getExperimenterState(){
@@ -704,7 +762,7 @@ function handleEpisodeTermination(terminationReasons = [], extra = {}){
     : completedEpisodeNumber + 1;
 
   if(nextEpisodeNumber===null){
-    finalizeExperimentLogging('protocol_complete');
+    void finalizeExperimentLogging('protocol_complete');
     updateExperimenterPanel();
     return;
   }
@@ -891,7 +949,7 @@ function makeSelection(id,actor){
 initializeGame();
 
 window.addEventListener('beforeunload', () => {
-  finalizeExperimentLogging('beforeunload');
+  void finalizeExperimentLogging('beforeunload');
 });
 
 function agentMove(){

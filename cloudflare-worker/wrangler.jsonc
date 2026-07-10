@@ -1,0 +1,16 @@
+{
+  "$schema": "node_modules/wrangler/config-schema.json",
+  "name": "adaptive-foraging-upload",
+  "main": "src/index.js",
+  "compatibility_date": "2026-07-01",
+  "r2_buckets": [
+    {
+      "binding": "SESSION_BUCKET",
+      "bucket_name": "adaptive-foraging-sessions"
+    }
+  ],
+  "vars": {
+    "ALLOWED_ORIGINS": "https://marlenercohen.github.io",
+    "MAX_UPLOAD_BYTES": "26214400"
+  }
+}
