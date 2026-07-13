@@ -1,15 +1,32 @@
-function trials = buildTrialTable(session, stimuli, rules)
+function trials = buildTrialTable(session, stimuli, rules, boardColumnCount)
 %BUILDTRIALTABLE Build one analysis row per human decision.
 %   TRIALS = BUILDTRIALTABLE(SESSION, STIMULI, RULES) parses one loaded
 %   session (from LOADSESSION), joins stimulus metadata (from
 %   BUILDSTIMULUSTABLE) and active rule metadata (from BUILDRULETABLE),
 %   and returns one table row per HUMAN decision.
 %
+%   TRIALS = BUILDTRIALTABLE(SESSION, STIMULI, RULES, BOARDCOLUMNCOUNT)
+%   sets the board column count used for Manhattan distance calculations.
+%   If BOARDCOLUMNCOUNT is omitted or empty, it defaults to 5.
+%
+%   Current experiment design uses a fixed 4x5 board (20 positions,
+%   numbered 0-19 in the event log), so the default BOARDCOLUMNCOUNT=5
+%   matches task geometry.
+%
 %   The parser walks SESSION.EVENTLOG exactly once while maintaining a
 %   reconstruction state. If required information cannot be reconstructed
 %   from the session, this function throws an informative error.
 
     validateInputs(session, stimuli, rules);
+
+    if nargin < 4 || isempty(boardColumnCount)
+        boardColumnCount = 5;
+    end
+    boardColumnCount = asNumber(boardColumnCount, NaN);
+    if isnan(boardColumnCount) || ~isfinite(boardColumnCount) || boardColumnCount <= 0
+        error('buildTrialTable:InvalidBoardColumnCount', ...
+            'boardColumnCount must be a positive numeric scalar.');
+    end
 
     events = afField(session, 'eventLog', struct([]));
     if isempty(events)
@@ -19,8 +36,6 @@ function trials = buildTrialTable(session, stimuli, rules)
 
     stimIndex = buildNumericIndex(stimuli, 'stimulusID');
     ruleIndex = buildStringIndex(rules, 'ruleName');
-
-    boardColumnCount = inferBoardColumnCount(session);
 
     rows = repmat(defaultTrialRow(), 0, 1);
     state = initialState();
@@ -480,40 +495,6 @@ function d = computeManhattanDistance(positionA, positionB, boardColumnCount)
     colB = mod(positionB, cols);
 
     d = abs(rowA - rowB) + abs(colA - colB);
-end
-
-function value = inferBoardColumnCount(session)
-    value = NaN;
-
-    metadata = afField(session, 'sessionMetadata', struct());
-
-    candidates = {
-        afField(metadata, 'boardColumnCount', []), ...
-        afField(metadata, 'boardColumns', []), ...
-        afField(afField(metadata, 'board', struct()), 'columns', []), ...
-        afField(afField(metadata, 'experimentConfiguration', struct()), 'boardColumnCount', []), ...
-        afField(afField(metadata, 'experimentConfiguration', struct()), 'boardColumns', []), ...
-        afField(afField(afField(metadata, 'experimentConfiguration', struct()), 'board', struct()), 'columns', []), ...
-        afField(afField(metadata, 'protocol', struct()), 'boardColumnCount', []), ...
-        afField(afField(metadata, 'protocol', struct()), 'boardColumns', []), ...
-        afField(afField(afField(metadata, 'protocol', struct()), 'board', struct()), 'columns', []) ...
-    };
-
-    phases = afField(afField(metadata, 'protocol', struct()), 'phases', struct([]));
-    if isstruct(phases) && ~isempty(phases)
-        phase = phases(1);
-        candidates{end + 1} = afField(phase, 'boardColumnCount', []); %#ok<AGROW>
-        candidates{end + 1} = afField(phase, 'boardColumns', []); %#ok<AGROW>
-        candidates{end + 1} = afField(afField(phase, 'board', struct()), 'columns', []); %#ok<AGROW>
-    end
-
-    for i = 1:numel(candidates)
-        c = asNumber(candidates{i}, NaN);
-        if ~isnan(c) && isfinite(c) && c > 0
-            value = c;
-            return;
-        end
-    end
 end
 
 function validateOptionalMoveConsistency(moveData, expectedActor, state)

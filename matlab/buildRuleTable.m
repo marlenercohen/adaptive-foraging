@@ -40,7 +40,8 @@ function rules = buildRuleTable(session)
     minimumDistanceCol = zeros(0, 1);
 
     for i = 1:numel(ruleNames)
-        ruleName = string(ruleNames{i});
+        ruleFieldName = string(ruleNames{i});
+        ruleName = toRuleFilename(ruleFieldName);
         definitionArray = ruleDefinitions.(ruleNames{i});
 
         definition = validateSingleRuleDefinition(definitionArray, ruleName);
@@ -93,6 +94,12 @@ function rules = buildRuleTable(session)
     if ~isempty(rules)
         rules = sortrows(rules, 'ruleName');
     end
+end
+
+function fileName = toRuleFilename(ruleFieldName)
+%TORULEFILENAME Convert MATLAB-safe rule field names back to JSON file names.
+
+    fileName = regexprep(string(ruleFieldName), '_json$', '.json');
 end
 
 function definition = validateSingleRuleDefinition(definitionArray, ruleName)
