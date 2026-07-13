@@ -3,10 +3,10 @@ function rules = buildRuleTable(session)
 %   RULES = BUILDRULETABLE(SESSION) reads rule definitions from
 %   SESSION.SESSIONMETADATA.RULEDEFINITIONS (as produced by LOADSESSION)
 %   and returns a table with one row per rule and variables:
-%       ruleName, feature, operator, value
+%       ruleName, ruleType, feature, operator, value
 %
-%   This helper currently supports only rule definitions that contain
-%   exactly one feature rule object, for example:
+%   This helper supports rule definitions that contain exactly one rule
+%   object, for example:
 %       [{"type":"feature","feature":"metadatamtx1","operator":"==","value":3}]
 %
 %   Metadata feature keys are mapped to human-readable names:
@@ -33,6 +33,7 @@ function rules = buildRuleTable(session)
     ruleNames = fieldnames(ruleDefinitions);
 
     ruleNameCol = strings(0, 1);
+    ruleTypeCol = strings(0, 1);
     featureCol = strings(0, 1);
     operatorCol = strings(0, 1);
     valueCol = zeros(0, 1);
@@ -41,34 +42,44 @@ function rules = buildRuleTable(session)
         ruleName = string(ruleNames{i});
         definitionArray = ruleDefinitions.(ruleNames{i});
 
-        definition = validateSingleFeatureDefinition(definitionArray, ruleName);
+        definition = validateSingleRuleDefinition(definitionArray, ruleName);
+        ruleType = string(afField(definition, 'type', ""));
 
-        featureKey = string(afField(definition, 'feature', ""));
-        if strlength(featureKey) == 0
-            error('buildRuleTable:MissingFeatureField', ...
-                'Rule "%s" is missing required field "feature".', ruleName);
+        feature = missing;
+        operator = missing;
+        value = NaN;
+
+        if ruleType == "feature"
+            featureKey = string(afField(definition, 'feature', ""));
+            if strlength(featureKey) == 0
+                error('buildRuleTable:MissingFeatureField', ...
+                    'Rule "%s" is missing required field "feature".', ruleName);
+            end
+
+            operator = string(afField(definition, 'operator', ""));
+            if strlength(operator) == 0
+                error('buildRuleTable:MissingOperatorField', ...
+                    'Rule "%s" is missing required field "operator".', ruleName);
+            end
+
+            feature = mapFeatureName(featureKey);
+            value = parseRuleValue(definition, ruleName);
         end
-
-        operator = string(afField(definition, 'operator', ""));
-        if strlength(operator) == 0
-            error('buildRuleTable:MissingOperatorField', ...
-                'Rule "%s" is missing required field "operator".', ruleName);
-        end
-
-        value = parseRuleValue(definition, ruleName);
 
         ruleNameCol(end + 1, 1) = ruleName; %#ok<AGROW>
-        featureCol(end + 1, 1) = mapFeatureName(featureKey); %#ok<AGROW>
+        ruleTypeCol(end + 1, 1) = ruleType; %#ok<AGROW>
+        featureCol(end + 1, 1) = feature; %#ok<AGROW>
         operatorCol(end + 1, 1) = operator; %#ok<AGROW>
         valueCol(end + 1, 1) = value; %#ok<AGROW>
     end
 
     rules = table( ...
         ruleNameCol, ...
+        ruleTypeCol, ...
         featureCol, ...
         operatorCol, ...
         valueCol, ...
-        'VariableNames', {'ruleName', 'feature', 'operator', 'value'} ...
+        'VariableNames', {'ruleName', 'ruleType', 'feature', 'operator', 'value'} ...
     );
 
     if ~isempty(rules)
@@ -76,8 +87,8 @@ function rules = buildRuleTable(session)
     end
 end
 
-function definition = validateSingleFeatureDefinition(definitionArray, ruleName)
-%VALIDATESINGLEFEATUREDEFINITION Ensure one supported rule object.
+function definition = validateSingleRuleDefinition(definitionArray, ruleName)
+%VALIDATESINGLERULEDEFINITION Ensure exactly one rule object.
 
     if ~isstruct(definitionArray)
         error('buildRuleTable:InvalidRuleDefinitionType', ...
@@ -87,18 +98,11 @@ function definition = validateSingleFeatureDefinition(definitionArray, ruleName)
     if numel(definitionArray) ~= 1
         error('buildRuleTable:UnsupportedRuleArity', ...
             ['Rule "%s" contains %d conditions. buildRuleTable currently supports ', ...
-             'only single-feature rules (exactly one definition object).'], ...
+             'only definitions with exactly one rule object.'], ...
             ruleName, numel(definitionArray));
     end
 
     definition = definitionArray(1);
-    ruleType = string(afField(definition, 'type', ""));
-    if ruleType ~= "feature"
-        error('buildRuleTable:UnsupportedRuleType', ...
-            ['Rule "%s" has unsupported type "%s". buildRuleTable currently supports ', ...
-             'only single-feature rules with type "feature".'], ...
-            ruleName, ruleType);
-    end
 end
 
 function readableName = mapFeatureName(featureKey)
