@@ -3,7 +3,7 @@ function rules = buildRuleTable(session)
 %   RULES = BUILDRULETABLE(SESSION) reads rule definitions from
 %   SESSION.SESSIONMETADATA.RULEDEFINITIONS (as produced by LOADSESSION)
 %   and returns a table with one row per rule and variables:
-%       ruleName, ruleType, feature, operator, value
+%       ruleName, ruleType, feature, operator, value, minimumDistance
 %
 %   This helper supports rule definitions that contain exactly one rule
 %   object, for example:
@@ -37,6 +37,7 @@ function rules = buildRuleTable(session)
     featureCol = strings(0, 1);
     operatorCol = strings(0, 1);
     valueCol = zeros(0, 1);
+    minimumDistanceCol = zeros(0, 1);
 
     for i = 1:numel(ruleNames)
         ruleName = string(ruleNames{i});
@@ -48,22 +49,27 @@ function rules = buildRuleTable(session)
         feature = missing;
         operator = missing;
         value = NaN;
+        minimumDistance = NaN;
 
-        if ruleType == "feature"
-            featureKey = string(afField(definition, 'feature', ""));
-            if strlength(featureKey) == 0
-                error('buildRuleTable:MissingFeatureField', ...
-                    'Rule "%s" is missing required field "feature".', ruleName);
-            end
+        switch ruleType
+            case "feature"
+                featureKey = string(afField(definition, 'feature', ""));
+                if strlength(featureKey) == 0
+                    error('buildRuleTable:MissingFeatureField', ...
+                        'Rule "%s" is missing required field "feature".', ruleName);
+                end
 
-            operator = string(afField(definition, 'operator', ""));
-            if strlength(operator) == 0
-                error('buildRuleTable:MissingOperatorField', ...
-                    'Rule "%s" is missing required field "operator".', ruleName);
-            end
+                operator = string(afField(definition, 'operator', ""));
+                if strlength(operator) == 0
+                    error('buildRuleTable:MissingOperatorField', ...
+                        'Rule "%s" is missing required field "operator".', ruleName);
+                end
 
-            feature = mapFeatureName(featureKey);
-            value = parseRuleValue(definition, ruleName);
+                feature = mapFeatureName(featureKey);
+                value = parseRuleValue(definition, ruleName);
+
+            case "distance-from-agent"
+                minimumDistance = parseRequiredNumericField(definition, 'minimumDistance', ruleName);
         end
 
         ruleNameCol(end + 1, 1) = ruleName; %#ok<AGROW>
@@ -71,6 +77,7 @@ function rules = buildRuleTable(session)
         featureCol(end + 1, 1) = feature; %#ok<AGROW>
         operatorCol(end + 1, 1) = operator; %#ok<AGROW>
         valueCol(end + 1, 1) = value; %#ok<AGROW>
+        minimumDistanceCol(end + 1, 1) = minimumDistance; %#ok<AGROW>
     end
 
     rules = table( ...
@@ -79,7 +86,8 @@ function rules = buildRuleTable(session)
         featureCol, ...
         operatorCol, ...
         valueCol, ...
-        'VariableNames', {'ruleName', 'ruleType', 'feature', 'operator', 'value'} ...
+        minimumDistanceCol, ...
+        'VariableNames', {'ruleName', 'ruleType', 'feature', 'operator', 'value', 'minimumDistance'} ...
     );
 
     if ~isempty(rules)
@@ -151,4 +159,30 @@ function value = parseRuleValue(definition, ruleName)
 
     error('buildRuleTable:InvalidValueField', ...
         'Rule "%s" has unsupported "value" type (%s).', ruleName, class(rawValue));
+end
+
+function value = parseRequiredNumericField(s, fieldName, ruleName)
+%PARSEREQUIREDNUMERICFIELD Parse one required scalar numeric field.
+
+    rawValue = afField(s, fieldName, []);
+    if isempty(rawValue)
+        error('buildRuleTable:MissingRuleParameter', ...
+            'Rule "%s" is missing required field "%s".', ruleName, fieldName);
+    end
+
+    if isnumeric(rawValue) || islogical(rawValue)
+        value = double(rawValue(1));
+        return;
+    end
+
+    if ischar(rawValue) || isstring(rawValue)
+        parsed = str2double(string(rawValue));
+        if ~isnan(parsed)
+            value = parsed;
+            return;
+        end
+    end
+
+    error('buildRuleTable:InvalidRuleParameter', ...
+        'Rule "%s" has invalid "%s" value (%s).', ruleName, fieldName, class(rawValue));
 end
