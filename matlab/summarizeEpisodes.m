@@ -129,7 +129,7 @@ function episodes = summarizeEpisodes(trials)
             episode(idx), finalAgentEpisodeScore(idx), maxAgentEpisodeScore(idx));
     end
 
-    episodes = table(
+    episodes = table( ...
         block, phase, episode, ...
         ruleName, ruleType, feature, operator, value, minimumDistance, ...
         ruleDescription, ...
@@ -144,8 +144,7 @@ function episodes = summarizeEpisodes(trials)
         meanAgentHumanDistance, ...
         meanHumanDistanceFromPreviousAgent, meanAgentDistanceFromPreviousHuman, ...
         finalHumanEpisodeScore, finalAgentEpisodeScore, rewardsRemaining, ...
-        allRewardsCollected, winner ...
-    );
+        allRewardsCollected, winner);
 end
 
 function assertTableVariables(tbl, requiredVars, errorId)
@@ -162,7 +161,7 @@ function validateConstantWithinEpisode(values, G, groupLabels, varName)
         case 'cell'
             isConstant = splitapply(@(x) numel(unique(string(x))) == 1, values, G);
         otherwise
-            isConstant = splitapply(@(x) numel(unique(double(x))) == 1, values, G);
+            isConstant = splitapply(@isConstantNumericTreatNaNEqual, values, G);
     end
 
     if any(~isConstant)
@@ -171,6 +170,16 @@ function validateConstantWithinEpisode(values, G, groupLabels, varName)
             'Field "%s" is not identical across all rows in %s.', ...
             varName, char(groupLabels(idx)));
     end
+end
+
+function tf = isConstantNumericTreatNaNEqual(x)
+    x = double(x);
+    x = x(~isnan(x));
+    if isempty(x)
+        tf = true;
+        return;
+    end
+    tf = numel(unique(x)) == 1;
 end
 
 function y = firstValue(x)
