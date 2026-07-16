@@ -74,7 +74,7 @@ function trials = loadSessionCSV(filename, stimuli, rules)
         return;
     end
 
-    eventLog = struct([]);
+    eventLog = repmat(makeEvent(0, '', struct()), 0, 1);
     sequence = 0;
 
     currentEpisode = NaN;

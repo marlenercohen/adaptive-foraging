@@ -157,9 +157,9 @@ end
 function validateConstantWithinEpisode(values, G, groupLabels, varName)
     switch class(values)
         case {'string','char'}
-            isConstant = splitapply(@(x) numel(unique(string(x))) == 1, values, G);
+            isConstant = splitapply(@isConstantStringTreatMissingEqual, values, G);
         case 'cell'
-            isConstant = splitapply(@(x) numel(unique(string(x))) == 1, values, G);
+            isConstant = splitapply(@isConstantStringTreatMissingEqual, values, G);
         otherwise
             isConstant = splitapply(@isConstantNumericTreatNaNEqual, values, G);
     end
@@ -180,6 +180,16 @@ function tf = isConstantNumericTreatNaNEqual(x)
         return;
     end
     tf = numel(unique(x)) == 1;
+end
+
+function tf = isConstantStringTreatMissingEqual(x)
+    sx = string(x);
+    sx = sx(~ismissing(sx));
+    if isempty(sx)
+        tf = true;
+        return;
+    end
+    tf = numel(unique(sx)) == 1;
 end
 
 function y = firstValue(x)
