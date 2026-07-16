@@ -182,14 +182,15 @@ function tf = isConstantNumericTreatNaNEqual(x)
     tf = numel(unique(x)) == 1;
 end
 
-function tf = isConstantStringTreatMissingEqual(x)
-    sx = string(x);
-    sx = sx(~ismissing(sx));
-    if isempty(sx)
-        tf = true;
-        return;
+function isConstant = isConstantStringTreatMissingEqual(x)
+    x = string(x);
+    x = x(~ismissing(x));
+
+    if isempty(x)
+        isConstant = true;
+    else
+        isConstant = numel(unique(x)) == 1;
     end
-    tf = numel(unique(sx)) == 1;
 end
 
 function y = firstValue(x)
