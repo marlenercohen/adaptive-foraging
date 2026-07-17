@@ -731,7 +731,7 @@ function value = asLogical(raw, defaultValue)
     end
 
     if isnumeric(raw)
-        if isempty(raw)
+        if isempty(raw) || isnan(raw(1))
             value = defaultValue;
         else
             value = logical(raw(1) ~= 0);

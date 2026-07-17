@@ -325,7 +325,7 @@ function tf = toBoolean(raw)
     end
 
     if isnumeric(raw)
-        if isempty(raw)
+        if isempty(raw) || isnan(raw(1))
             tf = false;
         else
             tf = raw(1) ~= 0;
