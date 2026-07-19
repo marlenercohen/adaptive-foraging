@@ -130,4 +130,12 @@ function decisionState = reconstructDecisionState(canonicalState)
     % Keep current choice identity for deterministic joins to stimulus facts.
     decisionState.currentHumanPosition = trials.humanPosition;
     decisionState.currentHumanStimulusID = trials.humanStimulusID;
+    decisionState.currentHumanReward = trials.humanReward;
+    decisionState.humanRepeatedOwnLocation = trials.humanRepeatedOwnLocation;
+    decisionState.humanRepeatedAgentLocation = trials.humanRepeatedAgentLocation;
+
+    % Keep preceding agent move facts aligned to each decision row.
+    decisionState.previousAgentReward = trials.agentReward;
+    decisionState.previousAgentRepeatedOwnLocation = trials.agentRepeatedOwnLocation;
+    decisionState.previousAgentRepeatedHumanLocation = trials.agentRepeatedHumanLocation;
 end
