@@ -18,6 +18,13 @@ This directory implements the first two model-agnostic layers for behavioral ana
 - Function: `af.buildDecisionState`
 - Responsibility: run `trials -> canonical facts -> decision state`.
 
+## Layer 3 descriptive modules
+
+- `af.computeStimulusDifficulty`: per-stimulus descriptive interaction summaries.
+- `af.summarizeRuleBehavior`: descriptive behavior summaries grouped by rule.
+- `af.evaluateRuleConsistency`: objective long-format `decision x candidate rule`
+	evaluations used by future flexibility/switching/model analyses.
+
 ## Notes
 
 - The output is intentionally minimal and extensible.
