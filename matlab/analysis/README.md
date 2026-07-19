@@ -24,6 +24,8 @@ This directory implements the first two model-agnostic layers for behavioral ana
 - `af.summarizeRuleBehavior`: descriptive behavior summaries grouped by rule.
 - `af.evaluateRuleConsistency`: objective long-format `decision x candidate rule`
 	evaluations used by future flexibility/switching/model analyses.
+- `af.buildRuleObservationHistory`: objective cumulative observation-history
+	context per `decision x candidate rule`.
 
 ## Notes
 
