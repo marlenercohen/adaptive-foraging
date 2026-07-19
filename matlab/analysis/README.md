@@ -39,6 +39,8 @@ counts, rather than storing redundant availability summaries in Layer 2.
 	context per `decision x candidate rule`.
 - `af.reconstructAvailableBoard`: canonical objective board availability
 	reconstruction before each human decision.
+- `af.reconstructEpisodeState`: complete objective pre-decision task-state
+	reconstruction for every human and agent move.
 
 ## Notes
 
