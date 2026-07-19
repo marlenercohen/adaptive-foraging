@@ -41,6 +41,8 @@ counts, rather than storing redundant availability summaries in Layer 2.
 	reconstruction before each human decision.
 - `af.reconstructEpisodeState`: complete objective pre-decision task-state
 	reconstruction for every human and agent move.
+- `af.summarizeHumanLearningOverTime`: descriptive human-learning trajectory
+	over the reconstructed episode state.
 
 ## Notes
 
