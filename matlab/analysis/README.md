@@ -41,10 +41,14 @@ counts, rather than storing redundant availability summaries in Layer 2.
 	reconstruction before each human decision.
 - `af.reconstructEpisodeState`: complete objective pre-decision task-state
 	reconstruction for every human and agent move.
+- `af.buildBehavioralState`: descriptive behavioral table for downstream
+	GLMs and mixed-effects models.
 - `af.summarizeHumanLearningOverTime`: descriptive human-learning trajectory
 	over the reconstructed episode state.
 
 ## Notes
 
 - The output is intentionally minimal and extensible.
-- Future analysis/model code should consume `decisionState` and keep theory-specific variables in separate Layer 3 modules.
+- Future analysis/model code should consume `decisionState` for reconstruction
+	and `behavioralState` for descriptive analyses, keeping theory-specific
+	variables in separate Layer 3 modules.
