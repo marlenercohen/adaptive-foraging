@@ -13,8 +13,10 @@ class FeatureLearningAgent{
    this.learningRate=0.1;
    const wmConfig = options.workingMemory || {};
    this.workingMemory = new ExponentialWorkingMemory(wmConfig);
-   const configuredPenalty = Number(wmConfig.memoryPenaltyWeight);
-   this.memoryPenaltyWeight = Number.isFinite(configuredPenalty) ? configuredPenalty : 1.0;
+   const configuredAlpha = Number(wmConfig.memorySuppressionAlpha);
+   const configuredBeta = Number(wmConfig.memorySuppressionBeta);
+   this.memorySuppressionAlpha = Number.isFinite(configuredAlpha) ? Math.max(configuredAlpha, 0) : 3.0;
+   this.memorySuppressionBeta = Number.isFinite(configuredBeta) ? Math.max(configuredBeta, 0) : 2.0;
  }
 
  makeFeatureKey(feature,value){
@@ -58,6 +60,10 @@ class FeatureLearningAgent{
    this.workingMemory.recordVisit(positionID);
  }
 
+ getEffectiveStrength(positionID){
+   return this.workingMemory.getStrength(positionID);
+ }
+
  choose(world){
    const allPositions = world.positions || [];
    if(!allPositions.length)return undefined;
@@ -68,9 +74,9 @@ class FeatureLearningAgent{
        this.ensureFeature(feature,value);
        return total + (this.weights[this.makeFeatureKey(feature,value)] || 0);
      },0);
-     const memoryStrength = this.workingMemory.getStrength(position.positionID);
-     const score = featureScore - (this.memoryPenaltyWeight * memoryStrength);
-     return {position,score};
+     const effectiveStrength = this.getEffectiveStrength(position.positionID);
+     const memorySuppression = this.memorySuppressionAlpha * Math.pow(effectiveStrength, this.memorySuppressionBeta);
+     return {position,score:featureScore - memorySuppression,effectiveStrength};
    });
 
    const bestScore=Math.max(...scored.map(item=>item.score));
